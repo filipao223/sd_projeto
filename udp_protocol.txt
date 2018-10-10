@@ -1,13 +1,16 @@
 --> MulticastServer
 <-- RMI Server
 
+Exemplo de um datagrama
+[ feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+
 /*------Todos------*/
 Todos os datagramas têm este campo
 
---> feature : int
+--> feature : string  (Depois cast para integer)
     feature:
-        login (feature_LOGIN)
-        manage (feature_MANAGE), ....
+        login (1) - (feature_LOGIN)
+        manage (2) - (feature_MANAGE), ....
         search
         details
         critique
