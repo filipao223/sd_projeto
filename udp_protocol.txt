@@ -1,0 +1,102 @@
+--> MulticastServer
+<-- RMI Server
+
+/*------Todos------*/
+Todos os datagramas têm este campo
+
+--> feature : int
+    feature:
+        login (feature_LOGIN)
+        manage (feature_MANAGE), ....
+        search
+        details
+        critique
+        make_editor
+        note_editor
+        note_new_edit
+        note_deliver
+        upload
+        share
+        download
+
+login
+
+--> username : string
+--> password : string
+<-- resposta : object
+
+gerir
+
+--> username : string
+--> acao : string
+<-- dados : object
+
+pesquisa 
+
+--> tipo : int
+--> dados : string
+<-- resposta : object
+
+consulta album 
+
+--> nome : string
+<-- resposta : object
+
+consulta artista 
+
+--> nome : string
+<-- resposta : object
+
+critica
+
+--> user : string
+--> nome album : string
+<-- texto : string
+<-- resposta : boolean (se deu ou nao)
+
+privilegios
+
+--> nome do editor : string
+--> nome do utilizador : string
+<-- resposta : boolean
+
+notificacao editor
+
+<-- nome novo editor : string
+
+notificao alteracao album
+
+<-- nome editor : string
+<-- nome album : string
+
+notificao alteracao artista
+
+<-- nome editor : string
+<-- antigo nome artista : string
+<-- novo nome artista  : string
+
+
+entrega notificacoes 
+
+<-- utilizadores : Array de string
+<-- notificacoes : Array de string
+
+transferencia de musicas para o server
+
+--> user : string
+--> nome musica : string
+--> ficheiro musical : object
+<-- resposta : object   (pode receber n so um boolean mas tb p .ex o url da musica)
+
+partilha 
+
+--> nome utilizadores : Array de string
+--> nome musica : string
+<-- resposta : boolean
+
+transferencia de musica para utilizador
+
+--> user : string
+--> musica : string
+<-- resposta : Object
+
