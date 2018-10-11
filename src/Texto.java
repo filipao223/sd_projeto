@@ -3,9 +3,9 @@ import java.util.ArrayList;
 
 public class Texto implements Serializable {
 	public ArrayList<String> text = new ArrayList<>();
-	public int caso;
+	public String caso;
 
-	public Texto(ArrayList<String> text,int caso) {
+	public Texto(ArrayList<String> text,String caso) {
 		this.caso = caso;
 		this.text = text;
 	}
@@ -20,7 +20,7 @@ public class Texto implements Serializable {
 		return this.text;
 	}
 
-	public int getCaso(){
+	public String getCaso(){
 		return this.caso;
 	}
 }

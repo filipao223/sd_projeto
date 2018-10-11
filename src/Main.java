@@ -23,13 +23,28 @@ public class Main {
                         String[] partes = linha.split("/");
                         ArrayList<String> A = new ArrayList<>();
 
-                        for (String s:partes){
-                            A.add(s);
+                        String insere = null;
+                        String s = null;
+
+                        for(int i=0;i<2;i++){
+                            if (i == 0){
+                                s = "username/";
+                                insere = s.concat(partes[i]);
+                                A.add(insere);
+                            }
+                            else if(i == 1){
+                                s = "acao/";
+                                insere = s.concat(partes[i]);
+                                A.add(insere);
+                            }
                         }
 
-                        Texto t = new Texto(A,code);
+                        s = "feature/";
+                        insere = s.concat(String.valueOf(code));
 
-                        h.remote_print(t);
+                        Texto t = new Texto(A,insere);
+
+                        h.receive(t);
 
                         break;
                     case Request.DOWNLOAD:
