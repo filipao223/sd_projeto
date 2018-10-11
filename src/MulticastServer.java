@@ -4,6 +4,8 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.lang.Thread.sleep;
 
@@ -25,6 +27,10 @@ public class MulticastServer extends Thread {
 
     @SuppressWarnings("unchecked")
     public void run() {
+
+        Task task;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
         Serializer s = new Serializer();
         MulticastSocket socket = null;
         //long counter = 0;
@@ -50,12 +56,16 @@ public class MulticastServer extends Thread {
                         case Request.LOGIN:
                             //Get username
                             String user = (String) dataRec.get("username");
-                            System.out.println("User \"" + user + "\" wants to login");
+                            String message = "User \"" + user + "\" wants to login";
+                            task = new Task(message);
+                            executor.submit(task);
                             break;
                         case Request.DOWNLOAD:
                             //Get username
                             user = (String) dataRec.get("username");
-                            System.out.println("User \"" + user + "\" wants to download");
+                            message = "User \"" + user + "\" wants to download";
+                            task = new Task(message);
+                            executor.submit(task);
                     }
 
                 } catch (ClassNotFoundException | ClassCastException e){
