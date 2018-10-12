@@ -32,55 +32,69 @@ login
 logout
 
 --> username : string
+<-- resposta : callback
 
 gerir
 
 --> username : string
---> acao : string
+--> action : string
+/*---Formato acao*/
+Usar valores em Request (Request.EDIT_NAME, Request.EDIT_MUSIC, ...)
+Cada valor separada por "_"
+1. album, music, artist
+2.
+-album: name, year, artist, description, genre, albums
+-music: name, album, artist, lyrics
+-artist: name, albums, birth, description
+3. new value (string)
+Exemplo:
+music_name_"nome de musica 4"
+(usando os valores de Request em vez de strings)
+/*---------------*/
 <-- resposta : callback
 
 pesquisa 
 
---> tipo : int
---> dados : string
+--> type : int (Valores em Request[Request.SEARCH_ALBUM, ...])
+--> name : string
 <-- resposta : callback
 
 consulta album 
 
---> nome : string
+--> name : string
 <-- resposta : callback
 
 consulta artista 
 
---> nome : string
+--> name : string
 <-- resposta : callback
 
 critica
 
 --> user : string
---> nome album : string
+--> album : string
 <-- resposta : callback
 
-privilegios
+make editor
 
---> nome do editor : string
---> nome do utilizador : string
+--> editor : string  (editor que tornou)
+--> user : string    (user que se tornou)
 <-- resposta : callback
 
 notificacao editor
 
-<-- nome novo editor : string
+<-- new_editor : string  (novo do novo editor)
 
 notificao alteracao album
 
-<-- nome editor : string
-<-- nome album : string
+<-- editor : string (nome do editor)
+<-- album : string (nome do album)
 
 notificao alteracao artista
 
-<-- nome editor : string
-<-- antigo nome artista : string
-<-- novo nome artista  : string
+<-- editor : string  (nome do editor)
+<-- old : string     (antigo nome do artista)
+<-- new  : string    (novo nome do artista)
 
 
 entrega notificacoes 
@@ -90,26 +104,26 @@ entrega notificacoes
 
 transferencia de musicas para o server
 
---> user : string
---> nome musica : string
---> ficheiro musical : object
-<-- resposta : callback   (pode receber n so um boolean mas tb p .ex o url da musica)
+--> user : string   (user que pretende a musica)
+--> music : string  (nome da musica)
+--> file : object   (musica)
+<-- resposta : callback
 
 partilha 
 
---> nome utilizadores : Array de string
---> nome musica : string
+--> users : Array de string
+--> music : string
 <-- resposta : callback
 
 transferencia de musica para utilizador
 
 --> user : string
---> musica : string
+--> music : string
 <-- resposta : callback
 
 callback
 
 <-- feature : string   (feature pedida ao servidor, o pacote contem na mesma o feature no inicio [Callback])
 <-- username : string  (user que pediu)
-<-- resposta : string
-<-- opcional : object   (Em algumas features, como o login, será null, noutras terá alguma coisa, como uma musica p.ex)
+<-- answer : string
+<-- optional : object   (Em algumas features, como o login, será null, noutras terá alguma coisa, como uma musica p.ex)
