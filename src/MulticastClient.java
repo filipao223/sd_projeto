@@ -78,6 +78,10 @@ class MulticastUser extends Thread {
                 readKeyboard = keyboardScanner.nextLine();
                 data.put("username", readKeyboard);
 
+                System.out.println("Password?: ");
+                readKeyboard = keyboardScanner.nextLine();
+                data.put("password", readKeyboard);
+
                 byte[] buffer = s.serialize(data);
 
                 InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);

@@ -3,7 +3,6 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +27,9 @@ public class MulticastServer extends Thread {
     @SuppressWarnings("unchecked")
     public void run() {
 
-        Task task;
+        System.out.println(System.getProperty("user.dir"));
+
+        RequestHandler handler;
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
         Serializer s = new Serializer();
@@ -50,23 +51,8 @@ public class MulticastServer extends Thread {
                 try{
                     dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
 
-                    //Check which feature user wants to do
-                    int code = Integer.parseInt((String)dataRec.get("feature"));
-                    switch(code){
-                        case Request.LOGIN:
-                            //Get username
-                            String user = (String) dataRec.get("username");
-                            String message = "User \"" + user + "\" wants to login";
-                            task = new Task(message);
-                            executor.submit(task);
-                            break;
-                        case Request.DOWNLOAD:
-                            //Get username
-                            user = (String) dataRec.get("username");
-                            message = "User \"" + user + "\" wants to download";
-                            task = new Task(message);
-                            executor.submit(task);
-                    }
+                    handler = new RequestHandler(dataRec);
+                    executor.submit(handler);
 
                 } catch (ClassNotFoundException | ClassCastException e){
                     System.out.println("Error casting deserialized packet data: " + e);
