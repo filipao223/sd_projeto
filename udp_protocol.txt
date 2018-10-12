@@ -27,42 +27,45 @@ login
 
 --> username : string
 --> password : string
-<-- resposta : object
+<-- resposta : callback
+
+logout
+
+--> username : string
 
 gerir
 
 --> username : string
 --> acao : string
-<-- dados : object
+<-- resposta : callback
 
 pesquisa 
 
 --> tipo : int
 --> dados : string
-<-- resposta : object
+<-- resposta : callback
 
 consulta album 
 
 --> nome : string
-<-- resposta : object
+<-- resposta : callback
 
 consulta artista 
 
 --> nome : string
-<-- resposta : object
+<-- resposta : callback
 
 critica
 
 --> user : string
 --> nome album : string
-<-- texto : string
-<-- resposta : boolean (se deu ou nao)
+<-- resposta : callback
 
 privilegios
 
 --> nome do editor : string
 --> nome do utilizador : string
-<-- resposta : boolean
+<-- resposta : callback
 
 notificacao editor
 
@@ -82,7 +85,7 @@ notificao alteracao artista
 
 entrega notificacoes 
 
-<-- utilizadores : Array de string
+<-- username : string
 <-- notificacoes : Array de string
 
 transferencia de musicas para o server
@@ -90,19 +93,19 @@ transferencia de musicas para o server
 --> user : string
 --> nome musica : string
 --> ficheiro musical : object
-<-- resposta : object   (pode receber n so um boolean mas tb p .ex o url da musica)
+<-- resposta : callback   (pode receber n so um boolean mas tb p .ex o url da musica)
 
 partilha 
 
 --> nome utilizadores : Array de string
 --> nome musica : string
-<-- resposta : boolean
+<-- resposta : callback
 
 transferencia de musica para utilizador
 
 --> user : string
 --> musica : string
-<-- resposta : Object
+<-- resposta : callback
 
 callback
 
