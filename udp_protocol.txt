@@ -21,6 +21,7 @@ Todos os datagramas têm este campo
         upload
         share
         download
+        callback
 
 login
 

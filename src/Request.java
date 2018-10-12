@@ -11,6 +11,7 @@ public class Request {
     protected static final int UPLOAD            = 10; //fazer upload de uma musica para o server
     protected static final int SHARE               = 11;  //Share de uma musica com users
     protected static final int DOWNLOAD     = 12;  //Download de musicas do servidor
+    protected static final int CALLBACK     = 13;  //Packet returned after processing in server
 
      final int levelCode;
 
