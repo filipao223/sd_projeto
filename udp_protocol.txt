@@ -104,3 +104,8 @@ transferencia de musica para utilizador
 --> musica : string
 <-- resposta : Object
 
+callback
+
+<-- feature : string   (feature pedida ao servidor, o pacote contem na mesma o feature no inicio [Callback])
+<-- resposta : string
+<-- opcional : object   (Em algumas features, como o login, será null, noutras terá alguma coisa, como uma musica p.ex)
