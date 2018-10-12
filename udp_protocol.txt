@@ -44,7 +44,7 @@ Cada valor separada por "_"
 1. album, music, artist
 2.
 -album: name, year, artist, description, genre, albums
--music: name, album, artist, lyrics
+-music: name, album, artist, lyrics, year
 -artist: name, albums, birth, description
 3. new value (string)
 Exemplo:
