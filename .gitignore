@@ -12,6 +12,8 @@
 
 # Package Files #
 *.jar
+!sqlite-jdbc-3.23.1.jar
+!json-simple-1.1.1.jar
 *.war
 *.nar
 *.ear
