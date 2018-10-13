@@ -3,7 +3,6 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import com.google.gson.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -12,6 +11,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,6 +27,7 @@ public class RequestHandler implements Runnable {
 
     private int NO_LOGIN        = 1;
     private int NO_USER_FOUND   = 2;
+    private int ALREADY_LOGIN   = 5;
     private int ALREADY_EDITOR  = 3;
     private int WRONG_PASSWORD  = 4;
 
@@ -53,7 +54,8 @@ public class RequestHandler implements Runnable {
                         String user = (String)data.get("username");
 
                         //Check in db
-                        int rc = loginHandler(code);
+                        //int rc = loginHandler(code);
+                        int rc = loginHandlerSql(code);
 
                         if (code == Request.LOGIN){
                             if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
@@ -67,7 +69,7 @@ public class RequestHandler implements Runnable {
 
 
 
-                    } catch (ParseException | IOException e) {
+                    } catch ( IOException e) {
                         e.printStackTrace();
                     }
                     break;
@@ -168,7 +170,7 @@ public class RequestHandler implements Runnable {
     @SuppressWarnings("unchecked")
     private int loginHandler(int code) throws IOException, ParseException {
         //Get username
-        String user = (String) data.get("username");
+        /*String user = (String) data.get("username");
         String message = "User \"" + user + "\" wants to login";
         System.out.println(message);
         String password = (String) data.get("password");
@@ -211,7 +213,47 @@ public class RequestHandler implements Runnable {
             }
         }
 
-        System.out.println(code==Request.LOGIN?"NO LOGIN":"NO LOGOUT");
+        System.out.println(code==Request.LOGIN?"NO LOGIN":"NO LOGOUT");*/
+        return NO_USER_FOUND;
+    }
+
+    private int loginHandlerSql(int code){
+        Connection connection = null;
+
+        try{
+            connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            Statement statement = connection.createStatement();
+
+            //Check login state
+            String user = (String) data.get("username");
+            String password = (String) data.get("password");
+
+            ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\"" + user + "\";");
+            while(rs.next()){
+                boolean alreadyLogin = ((rs.getInt("login"))==1);
+                if (alreadyLogin){
+                    return ALREADY_LOGIN;
+                }
+                else{
+                    int rc = statement.executeUpdate("UPDATE Users SET login=\"1\" WHERE name=\""
+                            + user + "\" AND password=\"" + password + "\";");
+                    connection.close();
+                    if(rc==0){
+                        System.out.println("NO LOGIN");
+                        return -1;
+                    }
+                    else{
+                        System.out.printf("LOGIN");
+                        return 0;
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error getting connection to database");
+            e.printStackTrace();
+        }
+
         return NO_USER_FOUND;
     }
 }

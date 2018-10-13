@@ -19,7 +19,7 @@
     <orderEntry type="module-library">
       <library>
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/JSON/gson-2.8.5.jar!/" />
+          <root url="jar://$MODULE_DIR$/JSON/sqlite-jdbc-3.23.1.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
