@@ -100,6 +100,11 @@ class MulticastUser extends Thread {
                     readKeyboard = keyboardScanner.nextLine();
                     data.put("newEditor", readKeyboard);
                 }
+                else if(readKeyboard.matches("14")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+                }
 
                 byte[] buffer = s.serialize(data);
 

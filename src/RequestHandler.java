@@ -5,7 +5,6 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -29,7 +28,6 @@ public class RequestHandler implements Runnable {
     private int NO_USER_FOUND   = 2;
     private int ALREADY_LOGIN   = 5;
     private int ALREADY_EDITOR  = 3;
-    private int WRONG_PASSWORD  = 4;
 
     RequestHandler(DatagramPacket packet){
         this.clientPacket = packet;
@@ -54,12 +52,12 @@ public class RequestHandler implements Runnable {
                         String user = (String)data.get("username");
 
                         //Check in db
-                        //int rc = loginHandler(code);
-                        int rc = loginHandlerSql(code);
+                        int rc = loginHandler(code);
 
                         if (code == Request.LOGIN){
-                            if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                            else if (rc==WRONG_PASSWORD) sendCallback(user, "Wrong password", null);
+                            if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
+                            else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                            else if (rc==-1) sendCallback(user, "Wrong user/password", null);
                             else sendCallback(user, "User logged in", null);
                         }
                         else{
@@ -168,56 +166,7 @@ public class RequestHandler implements Runnable {
     }
 
     @SuppressWarnings("unchecked")
-    private int loginHandler(int code) throws IOException, ParseException {
-        //Get username
-        /*String user = (String) data.get("username");
-        String message = "User \"" + user + "\" wants to login";
-        System.out.println(message);
-        String password = (String) data.get("password");
-
-        String path="JSON" + File.separator +"user.json";
-        JsonParser parser = new JsonParser();
-        JsonElement jsonElement = parser.parse(new FileReader(path));
-        JsonArray jsonData = jsonElement.getAsJsonArray();
-
-        //System.out.println(obj);
-
-        //JSONArray jsonData = (JSONArray) obj;
-        //System.out.println(jsonData);
-
-        for(int i=0; i<jsonData.size(); i++){
-            JsonObject userJson = jsonData.get(i).getAsJsonObject();
-            String gotName = userJson.get("name").getAsString();
-            String gotPass = userJson.get("password").getAsString();
-
-            if (code == Request.LOGIN){
-                if (  gotName.matches(user)  && gotPass.matches(password)){
-                    System.out.println("USER \"" + user + "\" LOGGED ON");
-                    userJson.remove("login");
-                    userJson.addProperty("login", true);
-
-                    System.out.println("user login state is " + userJson.get("login").getAsBoolean());
-
-                    return 0;
-                }
-                else if(gotName.matches(user)){
-                    System.out.println("Wrong password");
-                    return WRONG_PASSWORD;
-                }
-            }
-            else{
-                if(gotName.matches("user")){
-                    System.out.println("Wrong password");
-                    return 0;
-                }
-            }
-        }
-
-        System.out.println(code==Request.LOGIN?"NO LOGIN":"NO LOGOUT");*/
-        return NO_USER_FOUND;
-    }
-
-    private int loginHandlerSql(int code){
+    private int loginHandler(int code){
         Connection connection = null;
 
         try{
@@ -229,9 +178,16 @@ public class RequestHandler implements Runnable {
             String password = (String) data.get("password");
 
             ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\"" + user + "\";");
-            while(rs.next()){
-                boolean alreadyLogin = ((rs.getInt("login"))==1);
+            if(!rs.next()){
+                System.out.println("NO USER FOUND");
+                connection.close();
+                return NO_USER_FOUND;
+            }
+            if (code==Request.LOGIN){ //User wants to login
+                boolean alreadyLogin = ((rs.getString("login")).matches("1"));
                 if (alreadyLogin){
+                    System.out.println("ALREADY LOGIN");
+                    connection.close();
                     return ALREADY_LOGIN;
                 }
                 else{
@@ -243,10 +199,18 @@ public class RequestHandler implements Runnable {
                         return -1;
                     }
                     else{
-                        System.out.printf("LOGIN");
+                        System.out.println("LOGIN");
                         return 0;
                     }
                 }
+            }
+            else{ //User wants to logout
+                int rc = statement.executeUpdate("UPDATE Users SET login=\"0\" WHERE name=\""
+                        + user + "\";");
+                connection.close();
+
+                System.out.println("LOGOUT");
+                return 0;
             }
 
         } catch (SQLException e) {
