@@ -1,4 +1,4 @@
---> MulticastServer
+﻿--> MulticastServer
 <-- RMI Server
 
 Exemplo de um datagrama
@@ -73,6 +73,7 @@ critica
 
 --> user : string
 --> album : string
+--> critique : string
 <-- resposta : callback
 
 make editor
