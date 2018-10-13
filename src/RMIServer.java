@@ -18,9 +18,6 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		super();
 	}
 
-	public void print_on_server(String s) throws RemoteException {
-		System.out.println("> " + s);
-	}
 
 	public byte[] serialize(Object obj) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -31,17 +28,13 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public void subscribe(String name, RMIClient c) throws RemoteException {
 		System.out.println("Subscribing " + name);
-		client = c;
-		client.print_on_client();
+		this.client = c;
+		//client.print_on_client();
 	}
 
 
 	public void receive(Texto m) throws RemoteException {
-		/*for (String s : m.getText()) {
-			System.out.println("Server:" + s);
-		}
 
-		System.out.println(m.getCaso());*/
 		String MULTICAST_ADDRESS = "224.3.2.1";
 		int PORT = 4321;
 
@@ -52,25 +45,20 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		hmap.put(partes[0],partes[1]);
 		for(String s : m.getText()){
 			partes = s.split("_");
-			System.out.println(partes[0]);
-			System.out.println(partes[1]);
-			for(int i = 0;i<2;i++){
-				hmap.put(partes[0],partes[1]);
+			for(int i = 0;i<partes.length-1;i++){
+				hmap.put(partes[i],partes[i+1]);
 			}
 		}
 
 		//client.print_on_client();
 
-
-
-
-		/*Set set = hmap.entrySet();
+		Set set = hmap.entrySet();
 		Iterator iterator = set.iterator();
 		while(iterator.hasNext()) {
 			Map.Entry mentry = (Map.Entry)iterator.next();
 			System.out.print("key is: "+ mentry.getKey() + " & Value is: ");
 			System.out.println(mentry.getValue());
-		}*/
+		}
 
 		MulticastSocket socket= null;
 
@@ -98,7 +86,6 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public static void main(String args[]) {
 
-		String a;
 
 		try {
 			RMIServer h = new RMIServer();
