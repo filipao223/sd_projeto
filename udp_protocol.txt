@@ -1,0 +1,130 @@
+﻿--> MulticastServer
+<-- RMI Server
+
+Exemplo de um datagrama
+[ feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+
+/*------Todos------*/
+Todos os datagramas têm este campo
+
+--> feature : string  (Depois cast para integer)
+    feature:
+        login (1) - (feature_LOGIN)
+        manage (2) - (feature_MANAGE), ....
+        search
+        details
+        critique
+        make_editor
+        note_editor
+        note_new_edit
+        note_deliver
+        upload
+        share
+        download
+        callback
+
+login
+
+--> username : string
+--> password : string
+<-- resposta : callback
+
+logout
+
+--> username : string
+<-- resposta : callback
+
+gerir
+
+--> username : string
+--> action : string
+/*---Formato acao*/
+Usar valores em Request (Request.EDIT_NAME, Request.EDIT_MUSIC, ...)
+Cada valor separada por "_"
+1. album, music, artist
+2.
+-album: name, year, artist, description, genre, albums
+-music: name, album, artist, lyrics, year
+-artist: name, albums, birth, description
+3. new value (string)
+Exemplo:
+music_name_"nome de musica 4"
+(usando os valores de Request em vez de strings)
+/*---------------*/
+<-- resposta : callback
+
+pesquisa 
+
+--> type : int (Valores em Request[Request.SEARCH_ALBUM, ...])
+--> name : string
+<-- resposta : callback
+
+consulta album 
+
+--> name : string
+<-- resposta : callback
+
+consulta artista 
+
+--> name : string
+<-- resposta : callback
+
+critica
+
+--> user : string
+--> album : string
+--> critique : string
+<-- resposta : callback
+
+make editor
+
+--> editor : string  (editor que tornou)
+--> user : string    (user que se tornou)
+<-- resposta : callback
+
+notificacao editor
+
+<-- new_editor : string  (novo do novo editor)
+
+notificao alteracao album
+
+<-- editor : string (nome do editor)
+<-- album : string (nome do album)
+
+notificao alteracao artista
+
+<-- editor : string  (nome do editor)
+<-- old : string     (antigo nome do artista)
+<-- new  : string    (novo nome do artista)
+
+
+entrega notificacoes 
+
+<-- username : string
+<-- notificacoes : Array de string
+
+transferencia de musicas para o server
+
+--> user : string   (user que pretende a musica)
+--> music : string  (nome da musica)
+--> file : object   (musica)
+<-- resposta : callback
+
+partilha 
+
+--> users : Array de string
+--> music : string
+<-- resposta : callback
+
+transferencia de musica para utilizador
+
+--> user : string
+--> music : string
+<-- resposta : callback
+
+callback
+
+<-- feature : string   (feature pedida ao servidor, o pacote contem na mesma o feature no inicio [Callback])
+<-- username : string  (user que pediu)
+<-- answer : string
+<-- optional : object   (Em algumas features, como o login, será null, noutras terá alguma coisa, como uma musica p.ex)
