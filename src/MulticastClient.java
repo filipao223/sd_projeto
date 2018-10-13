@@ -22,14 +22,16 @@ import java.util.Scanner;
 public class MulticastClient extends Thread {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
+    private Serializer s = new Serializer();
 
     public static void main(String[] args) {
-        //MulticastClient client = new MulticastClient();
-        //client.start();
+        MulticastClient client = new MulticastClient();
+        client.start();
         MulticastUser user = new MulticastUser();
         user.start();
     }
 
+    @SuppressWarnings("unchecked")
     public void run() {
         MulticastSocket socket = null;
         try {
@@ -41,11 +43,17 @@ public class MulticastClient extends Thread {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                System.out.println("Received packet from " + packet.getAddress().getHostAddress() + ":" + packet.getPort() + " with message:");
-                String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println(message);
+                Map<String, Object> data = (Map<String, Object>) s.deserialize(buffer);
+                if (((String)data.get("feature")).matches("13")){
+                    System.out.println("------------Callback is: ");
+                    System.out.println("Feature: " + data.get("feature"));
+                    System.out.println("Username: " + data.get("username"));
+                    System.out.println("Resposta: " + data.get("answer"));
+                    System.out.println("Opcional: " + data.get("null"));
+                    System.out.println("-----------Done");
+                }
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         } finally {
             socket.close();
@@ -74,13 +82,24 @@ class MulticastUser extends Thread {
                 String readKeyboard = keyboardScanner.nextLine();
                 data.put("feature", readKeyboard);
 
-                System.out.println("Username?: ");
-                readKeyboard = keyboardScanner.nextLine();
-                data.put("username", readKeyboard);
+                if (readKeyboard.matches("1")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
 
-                System.out.println("Password?: ");
-                readKeyboard = keyboardScanner.nextLine();
-                data.put("password", readKeyboard);
+                    System.out.println("Password?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("password", readKeyboard);
+                }
+                else if(readKeyboard.matches("6")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("editor", readKeyboard);
+
+                    System.out.println("New editor?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("newEditor", readKeyboard);
+                }
 
                 byte[] buffer = s.serialize(data);
 

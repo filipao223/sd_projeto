@@ -2,7 +2,8 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -14,6 +15,7 @@ public class MulticastServer extends Thread {
     private int PORT = 4321;
     //private long SLEEP_TIME = 5000;
     private byte[] bufferReceive;
+    private List<String> loggedInUsers = new ArrayList<>();
 
     public static void main(String[] args) {
         MulticastServer server = new MulticastServer();
@@ -46,15 +48,14 @@ public class MulticastServer extends Thread {
                 DatagramPacket packetIn = new DatagramPacket(bufferReceive, bufferReceive.length);
                 socket.receive(packetIn);
 
-
-                Map<String, Object> dataRec;
+                //Map<String, Object> dataRec;
                 try{
-                    dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
+                    //dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
 
-                    handler = new RequestHandler(dataRec);
+                    handler = new RequestHandler(packetIn);
                     executor.submit(handler);
 
-                } catch (ClassNotFoundException | ClassCastException e){
+                } catch (ClassCastException e){
                     System.out.println("Error casting deserialized packet data: " + e);
                 } catch (NumberFormatException e){
                     System.out.println("Error parsing integer: " + e);

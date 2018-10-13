@@ -1,10 +1,16 @@
 [
   {
     "name" : "user1",
-    "password" : "password1"
+    "password" : "password1",
+    "login" : false,
+    "has_notification" : false,
+    "editor" : true
   },
   {
     "name" : "user2",
-    "password" : "password2"
+    "password" : "password2",
+    "login" : false,
+    "has_notification" : false,
+    "editor" : false
   }
 ]
