@@ -1,6 +1,8 @@
 public class Request {
     //Features
     protected static final int LOGIN             = 1;  //fazer login
+    protected static final int LOGOUT            = 14; //Logout
+    protected static final int REGISTER          = 29; //fazer registro
     protected static final int MANAGE            = 2;  //gerir artistas, musicas e albuns
     protected static final int SEARCH            = 3;  //procurar musicas por album ou artista
     protected static final int DETAILS           = 4;  //consultar detalhes sobre album e artista
@@ -13,7 +15,6 @@ public class Request {
     protected static final int SHARE             = 11; //Share de uma musica com users
     protected static final int DOWNLOAD          = 12; //Download de musicas do servidor
     protected static final int CALLBACK          = 13; //Packet returned after processing in server
-    protected static final int LOGOUT            = 14; //Logout
 
     //Edit
     protected static final int EDIT_ALBUM        = 15; //Editar info de albums
