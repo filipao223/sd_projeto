@@ -1,11 +1,7 @@
 
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -26,8 +22,10 @@ public class RequestHandler implements Runnable {
 
     private int NO_LOGIN        = 1;
     private int NO_USER_FOUND   = 2;
-    private int ALREADY_LOGIN   = 5;
-    private int ALREADY_EDITOR  = 3;
+    private int ALREADY_LOGIN   = 3;
+    private int ALREADY_EDITOR  = 4;
+    private int NOT_EDITOR      = 5;
+    private int DB_EXCEPTION    = 6;
 
     RequestHandler(DatagramPacket packet){
         this.clientPacket = packet;
@@ -57,11 +55,13 @@ public class RequestHandler implements Runnable {
                         if (code == Request.LOGIN){
                             if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
                             else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else if (rc==-1) sendCallback(user, "Wrong user/password", null);
                             else sendCallback(user, "User logged in", null);
                         }
                         else{
                             if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else sendCallback(user, "User logged out", null);
                         }
 
@@ -77,20 +77,28 @@ public class RequestHandler implements Runnable {
                     String newEditor = null;
                     try{
                         editor = (String) data.get("editor");
-                        newEditor = (String) data.get("user");
+                        newEditor = (String) data.get("newEditor");
 
-                        if(editor==null || newEditor==null){
-                            sendCallback(editor, "Bad data", null);
-                            break;
+                        int rc = checkLoginState(editor);
+                        if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
+                        else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                        else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
+                        else{
+                            //Check if is editor
+                            rc = checkIfEditor(editor);
+                            if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                            else{
+                                //Make editor
+                                rc = makeEditorHandler(editor, newEditor);
+                                if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
+                                else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                                else if (rc==-1) sendCallback(editor, "Failed making new editor", null);
+                                else sendCallback(editor, "Made new editor", null);
+                            }
                         }
 
-                        int rc = makeEditorHandler(editor, newEditor);
-                        if (rc == NO_LOGIN) sendCallback(editor, "User not logged in", null);
-                        else if (rc == NO_USER_FOUND) sendCallback(editor, "User not found", null);
-                        else if (rc == ALREADY_EDITOR) sendCallback(editor, "User already is editor", null);
-                        else sendCallback(editor, "\"" + newEditor + "\" is now editor", null);
-
-                    } catch (ParseException | IOException e) {
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
                     break;
@@ -105,45 +113,56 @@ public class RequestHandler implements Runnable {
     }
 
     @SuppressWarnings("unchecked")
-    private int makeEditorHandler(String editor, String newEditor) throws IOException, ParseException {
-        editor = (String) data.get("editor");
-        newEditor = (String) data.get("user");
-        String message = "User \"" + editor + "\" wants to make \"" + newEditor + "\" an editor";
-        System.out.println(message);
+    private int makeEditorHandler(String editor, String newEditor) {
 
-        JSONParser parser = new JSONParser();
-        String path="JSON" + File.separator +"user.json";
-        Object obj = parser.parse(new FileReader(path));
-        //System.out.println(obj);
+        try{
+            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            Statement statement = connection.createStatement();
 
-        JSONArray jsonData = (JSONArray) obj;
-        //System.out.println(jsonData);
+            //Check if user to be made editor exists
+            int rc = checkIfUserExists(newEditor);
+            if (rc==NO_USER_FOUND) return NO_USER_FOUND;
+            else{
+                //Update the value
+                rc = statement.executeUpdate("UPDATE Users SET editor=\"1\" WHERE name=\""
+                        + newEditor + "\";");
+                connection.close();
 
-        boolean gotEditor = false;
-        boolean gotUser = false;
-
-        JSONObject newEditorJson = null;
-
-        for(Object item:jsonData.subList(0, jsonData.size())){
-            JSONObject userJson = (JSONObject) item;
-            String gotName  = (String)userJson.get("name");
-
-            if(gotEditor && gotUser){
-                if((boolean)userJson.get("editor")) return ALREADY_EDITOR;
-                newEditorJson.put("editor", true);
+                if (rc==-1){
+                    System.out.println("ERROR MAKING EDITOR");
+                    return -1;
+                }
+                else{
+                    System.out.println("MADE EDITOR");
+                    return 0;
+                }
             }
-
-            if(gotName.matches(editor)){
-                if(!(boolean)userJson.get("login")) return NO_LOGIN;
-                gotEditor = true;
-            }
-            else if(gotName.matches(newEditor)){
-                newEditorJson = userJson;
-                gotUser = true;
-            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
         }
+    }
 
-        return NO_USER_FOUND;
+    private int checkIfUserExists(String newEditor) {
+        try{
+            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\""
+                    + newEditor + "\";");
+            connection.close();
+
+            if(!rs.next()){
+                System.out.println("NEW EDITOR NOT FOUND");
+                return NO_USER_FOUND;
+            }
+
+            return 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
     }
 
     private void sendCallback(String user, String resposta, Object optional) throws IOException {
@@ -163,6 +182,58 @@ public class RequestHandler implements Runnable {
         InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
         socket.send(packet);
+    }
+
+    private int checkLoginState(String user){
+        try{
+            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT login FROM Users WHERE name=\""
+                    + user + "\";");
+
+            if(!rs.next()){
+                System.out.println("NO USER FOUND");
+                connection.close();
+                return NO_USER_FOUND;
+            }
+
+            if((rs.getString("login")).matches("1")){
+                connection.close();
+                return 0;
+            }
+            else{
+                connection.close();
+                return NO_LOGIN;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
+    }
+
+    private int checkIfEditor(String user){
+        try{
+            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT editor FROM Users WHERE name=\""
+                    + user + "\";");
+
+            if((rs.getString("editor")).matches("1")){
+                connection.close();
+                return 0;
+            }
+            else{
+                connection.close();
+                return NOT_EDITOR;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -216,8 +287,7 @@ public class RequestHandler implements Runnable {
         } catch (SQLException e) {
             System.out.println("Error getting connection to database");
             e.printStackTrace();
+            return DB_EXCEPTION;
         }
-
-        return NO_USER_FOUND;
     }
 }
