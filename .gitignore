@@ -1,3 +1,6 @@
+#Exe's
+*.exe
+
 # Compiled class file
 *.class
 

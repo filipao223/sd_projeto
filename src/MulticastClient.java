@@ -82,7 +82,7 @@ class MulticastUser extends Thread {
                 String readKeyboard = keyboardScanner.nextLine();
                 data.put("feature", readKeyboard);
 
-                if (readKeyboard.matches("1")){
+                if (readKeyboard.matches("1") || readKeyboard.matches("29")){
                     System.out.println("Username?: ");
                     readKeyboard = keyboardScanner.nextLine();
                     data.put("username", readKeyboard);
