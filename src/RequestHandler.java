@@ -20,6 +20,8 @@ public class RequestHandler implements Runnable {
     private JSONObject correctUser = null;
     private Serializer s = new Serializer();
 
+    private Connection connection;
+
     private int NO_LOGIN        = 1;
     private int NO_USER_FOUND   = 2;
     private int ALREADY_LOGIN   = 3;
@@ -27,8 +29,9 @@ public class RequestHandler implements Runnable {
     private int NOT_EDITOR      = 5;
     private int DB_EXCEPTION    = 6;
 
-    RequestHandler(DatagramPacket packet){
+    RequestHandler(DatagramPacket packet, Connection connection){
         this.clientPacket = packet;
+        this.connection = connection;
     }
 
     @SuppressWarnings("unchecked")
@@ -116,7 +119,7 @@ public class RequestHandler implements Runnable {
     private int makeEditorHandler(String editor, String newEditor) {
 
         try{
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
             Statement statement = connection.createStatement();
 
             //Check if user to be made editor exists
@@ -145,7 +148,7 @@ public class RequestHandler implements Runnable {
 
     private int checkIfUserExists(String newEditor) {
         try{
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
             Statement statement = connection.createStatement();
 
             ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\""
@@ -186,7 +189,7 @@ public class RequestHandler implements Runnable {
 
     private int checkLoginState(String user){
         try{
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
             Statement statement = connection.createStatement();
 
             ResultSet rs = statement.executeQuery("SELECT login FROM Users WHERE name=\""
@@ -215,7 +218,7 @@ public class RequestHandler implements Runnable {
 
     private int checkIfEditor(String user){
         try{
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+            connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
             Statement statement = connection.createStatement();
 
             ResultSet rs = statement.executeQuery("SELECT editor FROM Users WHERE name=\""
@@ -238,7 +241,7 @@ public class RequestHandler implements Runnable {
 
     @SuppressWarnings("unchecked")
     private int loginHandler(int code){
-        Connection connection = null;
+        connection = null;
 
         try{
             connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");

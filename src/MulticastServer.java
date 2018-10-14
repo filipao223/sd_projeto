@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -16,6 +17,7 @@ public class MulticastServer extends Thread {
     //private long SLEEP_TIME = 5000;
     private byte[] bufferReceive;
     private List<String> loggedInUsers = new ArrayList<>();
+    private Connection mainDatabaseConnection;
 
     public static void main(String[] args) {
         MulticastServer server = new MulticastServer();
@@ -52,7 +54,7 @@ public class MulticastServer extends Thread {
                 try{
                     //dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
 
-                    handler = new RequestHandler(packetIn);
+                    handler = new RequestHandler(packetIn, mainDatabaseConnection);
                     executor.submit(handler);
 
                 } catch (ClassCastException e){
