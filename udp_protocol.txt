@@ -23,6 +23,12 @@ Todos os datagramas têm este campo
         download
         callback
 
+registo
+
+--> username : string
+--> password : string
+<-- resposta : callback
+
 login
 
 --> username : string
