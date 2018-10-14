@@ -107,7 +107,7 @@ notificao alteracao artista
 entrega notificacoes 
 
 <-- username : string
-<-- notificacoes : Array de string
+<-- notes : Array de string
 
 transferencia de musicas para o server
 
