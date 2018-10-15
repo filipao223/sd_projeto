@@ -1,6 +1,4 @@
 
-import org.json.simple.JSONObject;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -16,7 +14,6 @@ public class RequestHandler implements Runnable {
     private DatagramPacket clientPacket;
     private Map<String, Object> data = null;
 
-    private JSONObject correctUser = null;
     private Serializer s = new Serializer();
 
     private Connection connection;
