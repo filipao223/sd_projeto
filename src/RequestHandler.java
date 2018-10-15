@@ -6,8 +6,11 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.UnknownHostException;
 import java.sql.*;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RequestHandler implements Runnable {
@@ -21,6 +24,9 @@ public class RequestHandler implements Runnable {
     private Serializer s = new Serializer();
 
     private Connection connection;
+
+    private String new_editor_note = "You have been made editor by user ";
+    private String new_edit = "New edit: ";
 
     private int NO_LOGIN        = 1;
     private int NO_USER_FOUND   = 2;
@@ -118,7 +124,10 @@ public class RequestHandler implements Runnable {
                                 rc = makeEditorHandler(editor, newEditor);
                                 if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
                                 else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
-                                else sendCallback(editor, "Made new editor", null);
+                                else{
+                                    sendCallback(editor, "Made new editor", null);
+                                    sendNotification(newEditor, editor, null, Request.NOTE_EDITOR);
+                                }
                             }
                         }
 
@@ -134,6 +143,144 @@ public class RequestHandler implements Runnable {
 
             }
         }
+    }
+
+    private void sendNotification(String targetUser, String user, String edit, int code) {
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            //Check if the user is online
+            int rc = checkLoginState(targetUser);
+            connect();
+
+            if (rc==NO_USER_FOUND){
+                connection.close();
+                return;
+            }
+            else if (rc==NO_LOGIN){
+                //Not logged in, save the notification in the db
+                //Get existing notifications
+                String all_notes = null;
+                all_notes = getAllNotes(targetUser);
+                //Add new note to the list
+                String new_note = "";
+
+                //If not first note, add separator
+                if (all_notes!=null){
+                    new_note = new_note.concat(" | ");
+                }
+
+                if (code==Request.NOTE_EDITOR){
+                    new_note = new_note.concat(new_editor_note + user);
+                }
+                else if (code==Request.NOTE_NEW_EDIT){
+                    new_note = new_note.concat(new_edit + edit);
+                }
+
+                if (all_notes != null){
+                    all_notes = all_notes.concat(new_note);
+                }
+                else{
+                    all_notes = new_note;
+                }
+
+                //Update value in database
+                rc = statement.executeUpdate("UPDATE Users SET notes=\""
+                        + all_notes + "\" WHERE name=\"" + targetUser + "\";");
+
+                if (rc==-1) System.out.println("Error saving notifications");
+                else System.out.println("Saved notifications of user: " + targetUser);
+            }
+            else if (rc==DB_EXCEPTION){
+                connection.close();
+                System.out.println("Error sending notification");
+            }
+            else{
+                //User is logged in
+                //Create packet and send it
+                //Create multicast socket
+                MulticastSocket socket = new MulticastSocket();
+
+                //Create data map
+                Map<String, Object> callback = new HashMap<>();
+                callback.put("feature", String.valueOf(Request.NOTE_EDITOR));
+                callback.put("username", targetUser);
+
+                byte[] buffer = s.serialize(callback);
+
+                //Create udp packet
+                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                socket.send(packet);
+            }
+
+        } catch (SQLException e) {
+            System.out.println("ERROR SENDING NOTIFICATION");
+            e.printStackTrace();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private List<String> getAllNotes(String newEditor, boolean returnList) {
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT notes FROM Users WHERE name=\""
+                    + newEditor + "\";");
+
+            if (!rs.next()){
+                connection.close();
+                System.out.println("NO RESULT RECEIVED");
+                return null;
+            }
+            else{
+                String notes = rs.getString("notes");
+                List<String> note_list = null;
+                if(notes==null) return null;
+                else{
+                    for (String s:notes.split("|")){
+                        note_list.add(s);
+                    }
+                    return note_list;
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private String getAllNotes(String newEditor) {
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT notes FROM Users WHERE name=\""
+                    + newEditor + "\";");
+
+            if (!rs.next()){
+                connection.close();
+                System.out.println("NO RESULT RECEIVED");
+                return null;
+            }
+            else{
+                String notes = rs.getString("notes");
+                connection.close();
+                return notes;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     private int registerHandler(String user, String pass) {
@@ -243,6 +390,7 @@ public class RequestHandler implements Runnable {
                 return NO_USER_FOUND;
             }
 
+            connection.close();
             return 0;
 
         } catch (SQLException e) {

@@ -52,6 +52,10 @@ public class MulticastClient extends Thread {
                     System.out.println("Opcional: " + data.get("null"));
                     System.out.println("-----------Done");
                 }
+                else if (((String)data.get("feature")).matches("7")){
+                    System.out.println("-----------New note: ");
+                    System.out.println(data.get("username") + " was made editor");
+                }
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
