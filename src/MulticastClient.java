@@ -2,6 +2,7 @@ import java.net.MulticastSocket;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -55,6 +56,14 @@ public class MulticastClient extends Thread {
                 else if (((String)data.get("feature")).matches("7")){
                     System.out.println("-----------New note: ");
                     System.out.println(data.get("username") + " was made editor");
+                }
+                else if (((String)data.get("feature")).matches("9")){
+                    System.out.println("-----------New notes for " + data.get("username") + ": ");
+                    ArrayList<String> list = (ArrayList<String>) data.get("notes");
+                    for (String note:list){
+                        System.out.println(note);
+                    }
+                    System.out.println("-----------Done");
                 }
             }
         } catch (IOException | ClassNotFoundException e) {

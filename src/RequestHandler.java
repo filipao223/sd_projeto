@@ -1,6 +1,5 @@
 
 import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -8,10 +7,7 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.UnknownHostException;
 import java.sql.*;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class RequestHandler implements Runnable {
     private String MULTICAST_ADDRESS = "224.3.2.1";
@@ -50,7 +46,7 @@ public class RequestHandler implements Runnable {
     @SuppressWarnings("unchecked")
     public void run(){
         try{
-            data = (Map<String, Object>)s.deserialize(clientPacket.getData());
+            data = (Map<String, Object>) s.deserialize(clientPacket.getData());
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -88,15 +84,24 @@ public class RequestHandler implements Runnable {
                             else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
                             else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else if (rc==-1) sendCallback(user, "Wrong user/password", null);
-                            else sendCallback(user, "User logged in", null);
+                            else{
+                                sendCallback(user, "User logged in", null);
+                                System.out.println("Checking if notes");
+                                //Check if there are notifications
+                                ArrayList<String> notes = getAllNotes(user, true);
+                                if(notes != null){
+                                    System.out.println("Sending notes");
+                                    //There are notes, send them
+                                    sendMultipleNotifications(user, notes);
+                                }
+                                else System.out.println("No notes to send");
+                            }
                         }
                         else{
                             if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
                             else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else sendCallback(user, "User logged out", null);
                         }
-
-
 
                     } catch ( IOException e) {
                         e.printStackTrace();
@@ -126,7 +131,7 @@ public class RequestHandler implements Runnable {
                                 else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                                 else{
                                     sendCallback(editor, "Made new editor", null);
-                                    sendNotification(newEditor, editor, null, Request.NOTE_EDITOR);
+                                    sendSingleNotification(newEditor, editor, null, Request.NOTE_EDITOR);
                                 }
                             }
                         }
@@ -145,7 +150,7 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private void sendNotification(String targetUser, String user, String edit, int code) {
+    private void sendSingleNotification(String targetUser, String user, String edit, int code) {
         try{
             connect();
             Statement statement = connection.createStatement();
@@ -225,7 +230,51 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private List<String> getAllNotes(String newEditor, boolean returnList) {
+    private void sendMultipleNotifications(String user, ArrayList<String> notes){
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            int rc = checkIfUserExists(user);
+
+            if (rc==NO_USER_FOUND){
+                connection.close();
+                return;
+            }
+            else if (rc==DB_EXCEPTION){
+                System.out.println("Failed to send all notifications");
+                connection.close();
+                return;
+            }
+            else{
+                //Create packet and send it
+                //Create multicast socket
+                MulticastSocket socket = new MulticastSocket();
+
+                //Create data map
+                Map<String, Object> callback = new HashMap<>();
+                callback.put("feature", String.valueOf(Request.NOTE_DELIVER));
+                callback.put("username", user);
+                callback.put("notes", notes);
+
+                byte[] buffer = s.serialize(callback);
+
+                //Create udp packet
+                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                socket.send(packet);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private ArrayList<String> getAllNotes(String newEditor, boolean returnList) {
         try{
             connect();
             Statement statement = connection.createStatement();
@@ -240,12 +289,21 @@ public class RequestHandler implements Runnable {
             }
             else{
                 String notes = rs.getString("notes");
-                List<String> note_list = null;
-                if(notes==null) return null;
+                System.out.println("Notes (getAllNotes): " + notes);
+                connection.close();
+                ArrayList<String> note_list = null;
+                if(notes==null){
+                    System.out.println("No notes found(getALlNotes)");
+                    return null;
+                }
                 else{
-                    for (String s:notes.split("|")){
+                    note_list = new ArrayList<>();
+                    String[] split_string = null;
+
+                    for (String s:notes.split("\\|")){
                         note_list.add(s);
                     }
+                    System.out.println("Found notes: " + note_list);
                     return note_list;
                 }
             }
@@ -254,6 +312,7 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
+        System.out.println("Last return");
         return null;
     }
 
