@@ -59,8 +59,8 @@ public class MulticastClient extends Thread {
                 }
                 else if (((String)data.get("feature")).matches("9")){
                     System.out.println("-----------New notes for " + data.get("username") + ": ");
-                    ArrayList<String> list = (ArrayList<String>) data.get("notes");
-                    for (String note:list){
+                    String notes = (String) data.get("notes");
+                    for (String note:notes.split("\\|")){
                         System.out.println(note);
                     }
                     System.out.println("-----------Done");
