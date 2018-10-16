@@ -23,6 +23,12 @@ Todos os datagramas têm este campo
         download
         callback
 
+registo
+
+--> username : string
+--> password : string
+<-- resposta : callback
+
 login
 
 --> username : string
@@ -101,7 +107,7 @@ notificao alteracao artista
 entrega notificacoes 
 
 <-- username : string
-<-- notificacoes : Array de string
+<-- notes : Array de string
 
 transferencia de musicas para o server
 
