@@ -2,7 +2,13 @@
 <-- RMI Server
 
 Exemplo de um datagrama
-[ feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+[ server | 2 ;  feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+
+/*------Todos------*/
+Todos os datagramas têm este campo
+
+--> server : string (Depois cast para integer)
+    1, 2 ou 3
 
 /*------Todos------*/
 Todos os datagramas têm este campo
