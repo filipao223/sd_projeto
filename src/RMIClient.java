@@ -1,38 +1,42 @@
-import java.io.Serializable;
 import java.rmi.*;
 import java.rmi.registry.LocateRegistry;
 import java.util.*;
+import java.rmi.server.*;
+import java.io.*;
 
-public class RMIClient implements Serializable {
+public class RMIClient extends UnicastRemoteObject implements Client {
 
     static String name = null;
 
+    static int edit = 0; // 0 é para n editor, 1 é para editor
 
-    public void print_on_client() throws RemoteException {
 
-        /*
+    public RMIClient() throws RemoteException {
+        super();
+    }
+
+    public void print_on_client(HashMap h) throws RemoteException {
+
+
         Set set = h.entrySet();
 		Iterator iterator = set.iterator();
 		while(iterator.hasNext()) {
-			Map.Entry mentry = (Map.Entry)iterator.next();
-			System.out.print("key is: "+ mentry.getKey() + " & Value is: ");
-			System.out.println(mentry.getValue());
-		}*/
-        System.out.println("Hey");
+            Map.Entry mentry = (Map.Entry) iterator.next();
+            System.out.print("key is: " + mentry.getKey() + " & Value is: ");
+            System.out.println(mentry.getValue());
+        }
     }
 
     public static void main(String[] args){
         //Codes example
 
-
         try {
 
             Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer");
 
-            String linha = null;
-
             RMIClient c = new RMIClient();
 
+            String linha = null;
 
             do{
 
@@ -73,7 +77,7 @@ public class RMIClient implements Serializable {
 
                         t = new Texto(A,insere);
 
-                        h.subscribe(name, c);
+                        h.subscribe(name,(Client) c);
 
                         h.receive(t);
 
@@ -258,8 +262,8 @@ public class RMIClient implements Serializable {
 
         } catch (Exception e) {
             System.out.println("Exception in main: " + e);
+            e.printStackTrace();
         }
-
     }
 
 }

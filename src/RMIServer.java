@@ -11,8 +11,10 @@ import java.io.IOException;
 
 public class RMIServer extends UnicastRemoteObject implements Server {
 
-	static RMIClient client;
+	static Client client;
 	public Serializer serializer;
+
+	public int maxserver = 3;
 
 	public RMIServer() throws RemoteException {
 		super();
@@ -26,10 +28,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		return out.toByteArray();
 	}
 
-	public void subscribe(String name, RMIClient c) throws RemoteException {
-		System.out.println("Subscribing " + name);
-		this.client = c;
-		//client.print_on_client();
+	public void subscribe(String name,Client c) throws RemoteException {
+		client = c;
 	}
 
 
@@ -50,7 +50,9 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			}
 		}
 
-		//client.print_on_client();
+		hmap.put("server",Integer.toString(maxserver));
+
+		client.print_on_client(hmap);
 
 		Set set = hmap.entrySet();
 		Iterator iterator = set.iterator();
@@ -88,9 +90,9 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 
 		try {
-			RMIServer h = new RMIServer();
+			RMIServer s = new RMIServer();
 			Registry r = LocateRegistry.createRegistry(1099);
-			r.rebind("MainServer", h);
+			r.rebind("MainServer", s);
 			System.out.println("Server ready.");
 		} catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
