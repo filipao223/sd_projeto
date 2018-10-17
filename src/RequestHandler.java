@@ -1,6 +1,4 @@
 
-import org.json.simple.JSONObject;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -16,7 +14,6 @@ public class RequestHandler implements Runnable {
     private DatagramPacket clientPacket;
     private Map<String, Object> data = null;
 
-    private JSONObject correctUser = null;
     private Serializer s = new Serializer();
 
     private Connection connection;
@@ -96,11 +93,12 @@ public class RequestHandler implements Runnable {
                                 sendCallback(user, "User logged in", null);
                                 System.out.println("Checking if notes");
                                 //Check if there are notifications
-                                ArrayList<String> notes = getAllNotes(user, true);
+                                String notes = getAllNotes(user);
                                 if(notes != null){
                                     System.out.println("Sending notes");
                                     //There are notes, send them
                                     sendMultipleNotifications(user, notes);
+                                    System.out.println("Notes sent");
                                 }
                                 else System.out.println("No notes to send");
                             }
@@ -238,7 +236,7 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private void sendMultipleNotifications(String user, ArrayList<String> notes){
+    private void sendMultipleNotifications(String user, String notes){
         try{
             connect();
             Statement statement = connection.createStatement();
@@ -272,6 +270,10 @@ public class RequestHandler implements Runnable {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
                 socket.send(packet);
             }
+
+            //Clear the notes
+            statement.executeUpdate("UPDATE Users SET notes=null WHERE name=\"" + user + "\";");
+            connection.close();
 
         } catch (SQLException e) {
             e.printStackTrace();
