@@ -2,9 +2,12 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.Socket;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -12,19 +15,39 @@ import static java.lang.Thread.sleep;
 
 public class MulticastServer extends Thread {
 
-    private String MULTICAST_ADDRESS = "224.3.2.1";
-    private int PORT = 4321;
-    private byte[] bufferReceive;
+    private static String MULTICAST_ADDRESS = "224.3.2.1";
+    private static int PORT = 4321;
+    private static int PORT_DBCONNECTION = 7000;
+    private static byte[] bufferReceive;
     private Connection mainDatabaseConnection;
     private int serverNumber;
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) {
-        //MulticastServer server = new MulticastServer();
-        //server.start();
+        //Request server number and database connection
+        try {
+            Socket serverConnection = new Socket("localhost", PORT_DBCONNECTION);
+            DataInputStream in = new DataInputStream(serverConnection.getInputStream());
+            System.out.println(in);
+            bufferReceive = new byte[2048];
+            try{
+                in.readFully(bufferReceive);
+            } catch (EOFException e){
+                e.printStackTrace();
+            }
+            Map<String, Object> dataIn = new HashMap<>();
+            Serializer s = new Serializer();
+            dataIn = (Map<String, Object>) s.deserialize(bufferReceive);
+            MulticastServer server =
+                    new MulticastServer((Connection)dataIn.get("connection"), (int)dataIn.get("serverNumber"));
+            server.start();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     public MulticastServer(Connection mainDatabaseConnection, int serverNumber) {
-        super("Server " + (long) (Math.random() * 1000));
+        super("Server " + serverNumber);
         this.mainDatabaseConnection = mainDatabaseConnection;
         this.serverNumber = serverNumber;
     }

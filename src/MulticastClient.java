@@ -2,10 +2,7 @@ import java.net.MulticastSocket;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * The MulticastClient class joins a multicast group and loops receiving
@@ -91,6 +88,11 @@ class MulticastUser extends Thread {
             Scanner keyboardScanner = new Scanner(System.in);
             while (true) {
                 Map<String, Object> data = new HashMap<>();
+                //Get random number
+                Random r = new Random();
+                int number = r.nextInt(4);
+                data.put("server", String.valueOf(number));
+                System.out.println("==========Server " + number + "============");
                 System.out.println("Feature?: ");
                 String readKeyboard = keyboardScanner.nextLine();
                 data.put("feature", readKeyboard);

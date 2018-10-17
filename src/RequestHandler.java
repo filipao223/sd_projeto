@@ -55,7 +55,7 @@ public class RequestHandler implements Runnable {
             int server = Integer.parseInt((String)data.get("server"));
             if(server != serverNumber){
                 System.out.println("Server " + serverNumber + " aborted packet processing");
-
+                return;
             }
             //Check which feature user wants to do
             int code = Integer.parseInt((String)data.get("feature"));
@@ -78,6 +78,7 @@ public class RequestHandler implements Runnable {
                 case Request.LOGIN:
                 case Request.LOGOUT:
                     try{
+                        System.out.println("User wants to login");
                         String user = (String)data.get("username");
                         String password = (String) data.get("password");
 
