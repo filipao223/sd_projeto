@@ -14,18 +14,19 @@ public class MulticastServer extends Thread {
 
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
-    //private long SLEEP_TIME = 5000;
     private byte[] bufferReceive;
-    private List<String> loggedInUsers = new ArrayList<>();
     private Connection mainDatabaseConnection;
+    private int serverNumber;
 
     public static void main(String[] args) {
-        MulticastServer server = new MulticastServer();
-        server.start();
+        //MulticastServer server = new MulticastServer();
+        //server.start();
     }
 
-    public MulticastServer() {
+    public MulticastServer(Connection mainDatabaseConnection, int serverNumber) {
         super("Server " + (long) (Math.random() * 1000));
+        this.mainDatabaseConnection = mainDatabaseConnection;
+        this.serverNumber = serverNumber;
     }
 
     @SuppressWarnings("unchecked")
@@ -34,7 +35,7 @@ public class MulticastServer extends Thread {
         System.out.println(System.getProperty("user.dir"));
 
         RequestHandler handler;
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
 
         Serializer s = new Serializer();
         MulticastSocket socket = null;
@@ -54,7 +55,7 @@ public class MulticastServer extends Thread {
                 try{
                     //dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
 
-                    handler = new RequestHandler(packetIn, mainDatabaseConnection);
+                    handler = new RequestHandler(packetIn, mainDatabaseConnection, serverNumber);
                     executor.submit(handler);
 
                 } catch (ClassCastException e){

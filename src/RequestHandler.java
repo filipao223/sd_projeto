@@ -20,6 +20,7 @@ public class RequestHandler implements Runnable {
     private Serializer s = new Serializer();
 
     private Connection connection;
+    private int serverNumber;
 
     private String new_editor_note = "You have been made editor by user ";
     private String new_edit = "New edit: ";
@@ -38,9 +39,10 @@ public class RequestHandler implements Runnable {
      * @param connection Database connection passed by the server, this connection object is shared
      *                   between all request handlers, in order to solve synchronization issues
      */
-    RequestHandler(DatagramPacket packet, Connection connection){
+    RequestHandler(DatagramPacket packet, Connection connection, int serverNumber){
         this.clientPacket = packet;
         this.connection = connection;
+        this.serverNumber = serverNumber;
     }
 
     @SuppressWarnings("unchecked")
@@ -52,6 +54,12 @@ public class RequestHandler implements Runnable {
         }
 
         if (data != null){
+            //Check if server should be handling this packet
+            int server = Integer.parseInt((String)data.get("server"));
+            if(server != serverNumber){
+                System.out.println("Server " + serverNumber + " aborted packet processing");
+
+            }
             //Check which feature user wants to do
             int code = Integer.parseInt((String)data.get("feature"));
             switch(code){
