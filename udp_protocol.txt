@@ -8,7 +8,7 @@ Exemplo de um datagrama
 Todos os datagramas têm este campo
 
 --> server : string (Depois cast para integer)
-    1, 2 ou 3
+    0, 1 ou 2
 
 /*------Todos------*/
 Todos os datagramas têm este campo
