@@ -17,6 +17,7 @@ public class Request {
     protected static final int CALLBACK          = 13; //Packet returned after processing in server
     protected static final int NEW_SERVER        = 30; //Novo servidor criado, novos pacotes podem escolhe-lo
     protected static final int SERVER_DOWN       = 31; //Servidor foi abaixo, novos pacotes não o escolhem
+    protected static final int ADD_MUSIC         = 34; //Adiciona musicas à base de dados
 
     //Edit
     protected static final int EDIT_ALBUM        = 15; //Editar info de albums
@@ -30,6 +31,8 @@ public class Request {
     protected static final int EDIT_LYRICS       = 23; //Letras de musicas
     protected static final int EDIT_BIRTH        = 24; //Data de nascimento de um artista
     protected static final int EDIT_FIELD_ALBUMS = 25; //Lista de albums de um artista
+    protected static final int ADD_ARTIST        = 32; //Adiciona artistas à base de dados
+    protected static final int ADD_ALBUM         = 33; //Adiciona albums à base de dados
 
     //Pesquisa
     protected static final int SEARCH_ALBUM      = 26; //Pesquisa relacionada com albums
