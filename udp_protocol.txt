@@ -72,10 +72,12 @@ Cada valor separada por "_"
 -album: name, year, artist, description, genre, albums
 -music: name, album, artist, lyrics, year
 -artist: name, albums, birth, description
-3. new value (string)
+3. name of artist/album/music
+4. new value (string)
 Exemplo:
-music_name_"nome de musica 4"
-(usando os valores de Request em vez de strings)
+music_name_"music1"_"nome de musica novo"
+(usando os valores de Request em vez de strings:
+ 16_18_"music1"_"nome de musica novo")
 /*---------------*/
 <-- resposta : callback
 
