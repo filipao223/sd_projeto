@@ -31,11 +31,17 @@ Todos os datagramas têm este campo
 
 (internal) new server
 
-<-- new_server : string
+<-- new_server : int  (server number)
 
-/*Para garantir que os pedidos sao sempre processados, o gerador do numero de
-servidor é aumentado dinamicamente assim que novos sao ligados, começando em 0
-(random.nextInt(maxNumber) com maxNumber a começar em zero e a ser aumentado de 1 em 1*/
+/*Para garantir que os pedidos sao sempre processados, a lista com numeros de
+ servidor do gerador do numero de
+servidor é aumentada dinamicamente assim que novos sao ligados*/
+
+(internal) server down
+
+<-- server_down : int (server number)
+
+/*O oposto de new server, remove da lista o numero recebido*/
 
 registo
 
