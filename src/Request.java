@@ -16,6 +16,7 @@ public class Request {
     protected static final int DOWNLOAD          = 12; //Download de musicas do servidor
     protected static final int CALLBACK          = 13; //Packet returned after processing in server
     protected static final int NEW_SERVER        = 30; //Novo servidor criado, novos pacotes podem escolhe-lo
+    protected static final int SERVER_DOWN       = 31; //Servidor foi abaixo, novos pacotes não o escolhem
 
     //Edit
     protected static final int EDIT_ALBUM        = 15; //Editar info de albums
