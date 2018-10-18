@@ -4,11 +4,11 @@
 Exemplo de um datagrama
 [ server | 2 ;  feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
 
-/*------Todos------*/
-Todos os datagramas têm este campo
+/*------Todos --> ------*/
+Todos os datagramas em direção ao servidor multicast têm este campo
 
 --> server : string (Depois cast para integer)
-    0, 1 ou 2
+    um numero de servidor
 
 /*------Todos------*/
 Todos os datagramas têm este campo
@@ -28,6 +28,20 @@ Todos os datagramas têm este campo
         share
         download
         callback
+
+(internal) new server
+
+<-- new_server : int  (server number)
+
+/*Para garantir que os pedidos sao sempre processados, a lista com numeros de
+ servidor do gerador do numero de
+servidor é aumentada dinamicamente assim que novos sao ligados*/
+
+(internal) server down
+
+<-- server_down : int (server number)
+
+/*O oposto de new server, remove da lista o numero recebido*/
 
 registo
 
@@ -58,10 +72,12 @@ Cada valor separada por "_"
 -album: name, year, artist, description, genre, albums
 -music: name, album, artist, lyrics, year
 -artist: name, albums, birth, description
-3. new value (string)
+3. name of artist/album/music
+4. new value (string)
 Exemplo:
-music_name_"nome de musica 4"
-(usando os valores de Request em vez de strings)
+music_name_"music1"_"nome de musica novo"
+(usando os valores de Request em vez de strings:
+ 16_18_"music1"_"nome de musica novo")
 /*---------------*/
 <-- resposta : callback
 
