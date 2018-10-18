@@ -1,8 +1,5 @@
 import java.io.*;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.Socket;
+import java.net.*;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,17 +30,40 @@ public class MulticastServer extends Thread {
             try{
                 in.readFully(bufferReceive);
             } catch (EOFException e){
-                e.printStackTrace();
+                System.out.println("Received data from DBConnection");
             }
-            Map<String, Object> dataIn = new HashMap<>();
+            Map<String, Object> dataIn;
             Serializer s = new Serializer();
             dataIn = (Map<String, Object>) s.deserialize(bufferReceive);
+
+            //Start the server
             MulticastServer server =
                     new MulticastServer((Connection)dataIn.get("connection"), (int)dataIn.get("serverNumber"));
             server.start();
+            notify((int)dataIn.get("serverNumber"));
+            //Notify RMI Server that it is available to receive requests
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
+            System.out.println("A DBConnection instance running is required");
         }
+    }
+
+    public static void notify(int serverNumber) throws IOException {
+        //Create multicast socket
+        MulticastSocket socket = new MulticastSocket();
+        Serializer s = new Serializer();
+
+        //Create data map
+        Map<String, Object> callback = new HashMap<>();
+        callback.put("feature", String.valueOf(Request.NEW_SERVER));
+        callback.put("new_server", serverNumber);
+
+        byte[] buffer = s.serialize(callback);
+
+        //Create udp packet
+        InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+        socket.send(packet);
     }
 
     public MulticastServer(Connection mainDatabaseConnection, int serverNumber) {
@@ -74,10 +94,7 @@ public class MulticastServer extends Thread {
                 DatagramPacket packetIn = new DatagramPacket(bufferReceive, bufferReceive.length);
                 socket.receive(packetIn);
 
-                //Map<String, Object> dataRec;
                 try{
-                    //dataRec = (Map<String, Object>) s.deserialize(packetIn.getData());
-
                     handler = new RequestHandler(packetIn, mainDatabaseConnection, serverNumber);
                     executor.submit(handler);
 
@@ -95,28 +112,3 @@ public class MulticastServer extends Thread {
         }
     }
 }
-
-/*class MulticastSender extends Thread{
-    private String MULTICAST_ADDRESS = "224.0.224.0";
-    private int PORT = 4321;
-
-    public MulticastSender() {
-        super("Sender " + (long) (Math.random() * 1000));
-    }
-
-    public void run() {
-        MulticastSocket socket = null;
-        System.out.println(this.getName() + " ready...");
-
-        try{
-            socket = new MulticastSocket(); //Sending
-            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-
-
-
-        } catch (IOException e){
-            System.out.println("Exception: " + e);
-        }
-
-    }
-}*/

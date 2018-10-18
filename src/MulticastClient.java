@@ -21,11 +21,12 @@ public class MulticastClient extends Thread {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
     private Serializer s = new Serializer();
+    private static List<Integer> serverNumbers = new ArrayList<>();
 
     public static void main(String[] args) {
         MulticastClient client = new MulticastClient();
         client.start();
-        MulticastUser user = new MulticastUser();
+        MulticastUser user = new MulticastUser(serverNumbers);
         user.start();
     }
 
@@ -62,6 +63,14 @@ public class MulticastClient extends Thread {
                     }
                     System.out.println("-----------Done");
                 }
+                else if(((String)data.get("feature")).matches("30")){
+                    System.out.println("-----------New server (" + data.get("new_server") + ")------------");
+                    serverNumbers.add((int)data.get("new_server"));
+                }
+                else if(((String)data.get("feature")).matches("31")){
+                    System.out.println("-----------Server down (" + data.get("server_down") + ")------------");
+                    if (!serverNumbers.isEmpty()) serverNumbers.remove((int)data.get("server_down"));
+                }
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -74,9 +83,11 @@ public class MulticastClient extends Thread {
 class MulticastUser extends Thread {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
+    private List<Integer> serverNumbers;
 
-    public MulticastUser() {
+    public MulticastUser(List<Integer> list) {
         super("User " + (long) (Math.random() * 1000));
+        this.serverNumbers = list;
     }
 
     public void run() {
@@ -87,14 +98,29 @@ class MulticastUser extends Thread {
             socket = new MulticastSocket();  // create socket without binding it (only for sending)
             Scanner keyboardScanner = new Scanner(System.in);
             while (true) {
+                boolean alreadyGotFeatureCode = false;
                 Map<String, Object> data = new HashMap<>();
                 //Get random number
                 Random r = new Random();
-                int number = r.nextInt(4);
-                data.put("server", String.valueOf(number));
-                System.out.println("==========Server " + number + "============");
-                System.out.println("Feature?: ");
-                String readKeyboard = keyboardScanner.nextLine();
+                String readKeyboard = "";
+                if (serverNumbers.isEmpty()){
+                    System.out.println("Feature?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    //If still no servers, continue
+                    if (serverNumbers.isEmpty()){
+                        System.out.println("No servers available");
+                        continue;
+                    }
+                    //Servers available
+                    alreadyGotFeatureCode = true;
+                }
+                int index = r.nextInt(serverNumbers.size());
+                data.put("server", String.valueOf(serverNumbers.get(index)));
+                System.out.println("==========Server " + serverNumbers.get(index) + "============");
+                if (!alreadyGotFeatureCode){
+                    System.out.println("Feature?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                }
                 data.put("feature", readKeyboard);
 
                 if (readKeyboard.matches("1") || readKeyboard.matches("29")){

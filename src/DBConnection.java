@@ -26,7 +26,7 @@ public class DBConnection extends Thread {
         try {
             ServerSocket socket = new ServerSocket(PORT);
             serverNumbers = new ArrayList<>();
-            serverNumbers.add(1); serverNumbers.add(2); serverNumbers.add(0); serverNumbers.add(3);
+            serverNumbers.add(1); serverNumbers.add(2); serverNumbers.add(0);
             ExecutorService executor = Executors.newFixedThreadPool(3);
             while(true){
                 Socket client = socket.accept();

@@ -28,6 +28,7 @@ public class RequestHandler implements Runnable {
     private int ALREADY_EDITOR  = 4;
     private int NOT_EDITOR      = 5;
     private int DB_EXCEPTION    = 6;
+    private int TIMEOUT         = 7;
 
     /**
      * Constructor for request handler, uses the UDP datagram received by the server and a database
@@ -126,6 +127,7 @@ public class RequestHandler implements Runnable {
                         if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
                         else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                         else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
+                        else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null);
                         else{
                             //Check if is editor
                             rc = checkIfEditor(editor);
@@ -507,7 +509,7 @@ public class RequestHandler implements Runnable {
             connect();
             Statement statement = connection.createStatement();
 
-            ResultSet rs = statement.executeQuery("SELECT login FROM Users WHERE name=\""
+            ResultSet rs = statement.executeQuery("SELECT login, timestamp FROM Users WHERE name=\""
                     + user + "\";");
 
             if(!rs.next()){
@@ -517,6 +519,17 @@ public class RequestHandler implements Runnable {
             }
 
             if((rs.getString("login")).matches("1")){
+                //Logged in, now check if session should be timed out
+                long unixTime = System.currentTimeMillis() / 1000L;
+                //If the difference between now seconds and timestamp is bigger than 1800 seconds (30 minutes)
+                if((unixTime - rs.getLong("timestamp")) > 30){
+                    //Set login state to logged out
+                    statement.executeUpdate("UPDATE Users SET login=\"0\" WHERE name=\""
+                            + user + "\";");
+                    connection.close();
+                    return TIMEOUT;
+                }
+
                 connection.close();
                 return 0;
             }
@@ -591,7 +604,9 @@ public class RequestHandler implements Runnable {
                     return ALREADY_LOGIN;
                 }
                 else{
-                    int rc = statement.executeUpdate("UPDATE Users SET login=\"1\" WHERE name=\""
+                    //Updates login state and timestamp
+                    long unixTime = System.currentTimeMillis() / 1000L;
+                    int rc = statement.executeUpdate("UPDATE Users SET login=\"1\", timestamp=\"" + unixTime + "\" WHERE name=\""
                             + user + "\" AND password=\"" + password + "\";");
                     connection.close();
                     if(rc==0){
