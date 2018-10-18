@@ -8,7 +8,7 @@ Exemplo de um datagrama
 Todos os datagramas em direção ao servidor multicast têm este campo
 
 --> server : string (Depois cast para integer)
-    0, 1 ou 2
+    um numero de servidor
 
 /*------Todos------*/
 Todos os datagramas têm este campo
