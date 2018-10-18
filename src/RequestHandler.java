@@ -7,6 +7,9 @@ import java.net.UnknownHostException;
 import java.sql.*;
 import java.util.*;
 
+/**
+ * Runnable that handles a single UDP datagram
+ */
 public class RequestHandler implements Runnable {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
@@ -44,6 +47,17 @@ public class RequestHandler implements Runnable {
     }
 
     @SuppressWarnings("unchecked")
+
+    /**
+     * Main thread code.
+     *<p>
+     * Before starting to process the client's request, the server number of the packet is checked against
+     * the server's number. If it matches, processing continues, if it doesn't, the thread simply returns,
+     * another server will handle processing of this request.
+     *<p>
+     * Next step is to check which feature was requested. The feature number is extracted from the packet,
+     * and, using a simple switch, is checked against Request codes.
+     */
     public void run(){
         try{
             data = (Map<String, Object>) s.deserialize(clientPacket.getData());
@@ -159,6 +173,15 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Sends single notification immediately to given user if said user is online over UDP. If user is not
+     * online, then notification is saved in the database
+     * @param targetUser the user which the notification is meant to
+     * @param user user responsible for triggering notification
+     * @param edit a small description of the edited resource,
+     *             in the case the notification informs about a new edit
+     * @param code the Request code associated with edit type, if an edit was made
+     */
     private void sendSingleNotification(String targetUser, String user, String edit, int code) {
         try{
             connect();
@@ -239,6 +262,11 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Sends given string of concatenated notifications to user passed as parameter over UDP
+     * @param user the user to which the notifications are meant
+     * @param notes concatenated notifications
+     */
     private void sendMultipleNotifications(String user, String notes){
         try{
             connect();
@@ -287,55 +315,19 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private ArrayList<String> getAllNotes(String newEditor, boolean returnList) {
+    /**
+     * Gets all the pending notifications of user passed as parameter
+     * @param user
+     * @return a single string with all the notifications concatenated, separated by '|' character.
+     *          String is null if there are no notifications to get
+     */
+    private String getAllNotes(String user) {
         try{
             connect();
             Statement statement = connection.createStatement();
 
             ResultSet rs = statement.executeQuery("SELECT notes FROM Users WHERE name=\""
-                    + newEditor + "\";");
-
-            if (!rs.next()){
-                connection.close();
-                System.out.println("NO RESULT RECEIVED");
-                return null;
-            }
-            else{
-                String notes = rs.getString("notes");
-                System.out.println("Notes (getAllNotes): " + notes);
-                connection.close();
-                ArrayList<String> note_list = null;
-                if(notes==null){
-                    System.out.println("No notes found(getALlNotes)");
-                    return null;
-                }
-                else{
-                    note_list = new ArrayList<>();
-                    String[] split_string = null;
-
-                    for (String s:notes.split("\\|")){
-                        note_list.add(s);
-                    }
-                    System.out.println("Found notes: " + note_list);
-                    return note_list;
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("Last return");
-        return null;
-    }
-
-    private String getAllNotes(String newEditor) {
-        try{
-            connect();
-            Statement statement = connection.createStatement();
-
-            ResultSet rs = statement.executeQuery("SELECT notes FROM Users WHERE name=\""
-                    + newEditor + "\";");
+                    + user + "\";");
 
             if (!rs.next()){
                 connection.close();
@@ -355,6 +347,14 @@ public class RequestHandler implements Runnable {
         return null;
     }
 
+    /**
+     * Registers user passed as parameter, saving its name and password in the database
+     * First user to register is automatically made editor
+     * @param user
+     * @param pass
+     * @return the integer codes defined in the class. DB_EXCEPTION if there was a SQL related exception,
+     *          -1 if user already exists and 0 if successful
+     */
     private int registerHandler(String user, String pass) {
         try{
             connect();
