@@ -1,3 +1,6 @@
+/**
+ * Class that contains request codes used in MulticastServer and RMIServer
+ */
 public class Request {
     //Features
     protected static final int LOGIN             = 1;  //fazer login
@@ -33,6 +36,8 @@ public class Request {
     protected static final int EDIT_FIELD_ALBUMS = 25; //Lista de albums de um artista
     protected static final int ADD_ARTIST        = 32; //Adiciona artistas à base de dados
     protected static final int ADD_ALBUM         = 33; //Adiciona albums à base de dados
+    protected static final int REMOVE_ARTIST     = 35; //Remove um artista
+    protected static final int REMOVE_ALBUM      = 36; //Remove um album
 
     //Pesquisa
     protected static final int SEARCH_ALBUM      = 26; //Pesquisa relacionada com albums

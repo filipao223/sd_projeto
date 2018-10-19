@@ -102,7 +102,6 @@ public class RequestHandler implements Runnable {
         //----------------------------------------------------------------------------------
                 case Request.LOGIN:
                 case Request.LOGOUT:
-                    // TODO update timestamp on login even if user already is logged in
                     try{
                         System.out.println("User wants to login/logout");
                         String user = (String)data.get("username");
@@ -195,6 +194,10 @@ public class RequestHandler implements Runnable {
                                 rc = managerHandler(user, action);
                                 if (rc == DB_EXCEPTION) sendCallback(user, "Database error", null);
                                 else if (rc==-1) sendCallback(user, "Field not edited", null);
+                                else if (rc==-2) sendCallback(user, "Item not added", null);
+                                else if (rc==-3) sendCallback(user, "Item not removed", null);
+                                else if (rc==1) sendCallback(user, "Item added", null);
+                                else if (rc==2) sendCallback(user, "Item removed", null);
                                 else sendCallback(user, "Field edited", null);
                             }
                         }
@@ -380,48 +383,141 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * First method to be called if the user requests an edit.
+     * First method to be called if the user requests an edit, an addition or a removal.
      * <p>
-     * First step is to parse the string received in the UDP datagram into 4 different strings:
+     * First step is to parse the string received in the UDP datagram into 4 different strings if it is an edit,
+     * or 2 strings if it is a removal or an addition:
      * <u>
-     *     <li><b>Code:</b> determines which type of resource to edit, music, album or artist</li>
-     *     <li><b>Attribute:</b> which field of that resource it is to be changed</li>
-     *     <li><b>Name:</b> which resource the user wants to change, for example, name of the album</li>
-     *     <li><b>NewValue:</b> new value of that field</li>
+     *     <li><b>Code:</b> determines which type of resource to edit, music, album or artist, or if it is an addition/removal</li>
+     *     <li><b>(rem/add)Name:</b> name of the item that is to be added or removed</li>
+     *     <li><b>(edit)Attribute:</b> which field of that resource it is to be changed</li>
+     *     <li><b>(edit)Name:</b> which resource the user wants to change, for example, name of the album</li>
+     *     <li><b>(edit)NewValue:</b> new value of that field</li>
      * </u>
      * <p>
-     * It then calls {@link #attributeEdit(int, String, String, String)} that will change that attribute
+     * If an edit was requested, it then calls {@link #attributeEdit(int, String, String, String)} that will change that attribute
      * in the database
+     * <p>
+     * For an addition, {@link #addItem(String, String)} is called, which first checks if same name already exists and then adds the item.
+     * <p>
+     * For a removal, {@link #removeItem(String, String)} is called, which first checks if the item exists and then removes it from the database.
      * @param user editor that requested the change
-     * @param action string that holds which information to change and where
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the field was not changed
-     * and o if successful
+     * @param action string that holds command
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if unsuccessful edit,
+     * -2 if unsuccessful addition, -3 if unsuccessful removal, 0 if successful edit,
+     * 1 if successful addition and 2 if successful removal
      */
     private int managerHandler(String user, String action){
         try{
             //Parse action string
             String[] actionSplit = action.split("_");
 
-            //Get which attribute to update
-            int attribute = Integer.parseInt(actionSplit[1]);
-            String name = actionSplit[2]; //Name of the item (album, music or artist)
-            String newValue = actionSplit[3]; //New value of the attribute
-
-            //Check if edit is on album, music or artist
+            //Request code, could be an edit or an addition
             int code = Integer.parseInt(actionSplit[0]);
+
+            //Check if it is an addition, a removal or an edit and if it is on album, music or artist
             switch(code){
                 case Request.EDIT_MUSIC:
-                    return attributeEdit(attribute, name, newValue, "Music");
                 case Request.EDIT_ALBUM:
-                    return attributeEdit(attribute, name, newValue, "Albums");
                 case Request.EDIT_ARTIST:
-                    return attributeEdit(attribute, name, newValue, "Artists");
+                    //Get which attribute to update
+                    int attribute = Integer.parseInt(actionSplit[1]);
+                    String name = actionSplit[2]; //Name of the item (album, music or artist)
+                    String newValue = actionSplit[3]; //New value of the attribute
+                    String table;
+                    if (code==Request.EDIT_MUSIC) table = "Music";
+                    else if (code== Request.EDIT_ALBUM) table = "Albums";
+                    else table = "Artists";
+                    return attributeEdit(attribute, name, newValue, table);
+                case Request.ADD_ALBUM:
+                case Request.ADD_ARTIST:
+                    name = actionSplit[1];
+                    if (code== Request.ADD_ALBUM) table = "Albums";
+                    else table = "Artists";
+                    return addItem(name, table);
+                case Request.REMOVE_ALBUM:
+                case Request.REMOVE_ARTIST:
+                    name = actionSplit[1];
+                    if (code== Request.REMOVE_ALBUM) table = "Albums";
+                    else table = "Artists";
+                    return removeItem(name, table);
             }
 
             return -1;
         } catch(Exception e){
             e.printStackTrace();
             return -1;
+        }
+    }
+
+    /**
+     * Adds item to database with given name as parameter into given table
+     * @param name
+     * @param table
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -2 if item wasn't added and 1 otherwise
+     */
+    private int addItem(String name, String table) {
+        // TODO (optional) Allow more parameters when creating new album or artist
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            //Check if same name already exists
+            int rc = checkIfNameExists(name, table);
+            if (rc==-1){
+                System.out.println("Name already exists");
+                connection.close();
+                return -2;
+            }
+            else if (rc==0){
+                //Name of the field is to be changed
+                rc = statement.executeUpdate("INSERT INTO \"" + table + "\" (name) VALUES (\"" + name + "\");");
+                connection.close();
+                if (rc==-1){
+                    System.out.println("Error adding item to database");
+                    return -2;
+                }
+            }
+            return 1;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
+    }
+
+    /**
+     * Removes item with given name as parameter in given table from the database, first checking if it exists
+     * @param name
+     * @param table
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -3 if item wasn't removed and 2 otherwise
+     */
+    private int removeItem(String name, String table){
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            //Check if same name already exists
+            int rc = checkIfNameExists(name, table);
+            if (rc==-1){
+                //Name of the field is to be changed
+                rc = statement.executeUpdate("DELETE FROM \"" + table + "\" WHERE name=\"" + name + "\";");
+                connection.close();
+                if (rc==-1){
+                    System.out.println("Error removing item from database");
+                    return -3;
+                }
+
+                return 2;
+            }
+            else if (rc==0){
+                System.out.println("Item doesn't exist");
+                connection.close();
+                return -3;
+            }
+            else return -3;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
         }
     }
 
@@ -445,9 +541,17 @@ public class RequestHandler implements Runnable {
             switch (attribute){
                 // TODO prevent new name from being an existing one
                 case Request.EDIT_NAME:
-                    //Name of the field is to be changed
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_NAME
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    //Check if the new name doesn't already exists
+                    rc = checkIfNameExists(newValue, table);
+                    if (rc==-1){
+                        System.out.println("Name already exists");
+                        return rc;
+                    }
+                    else if (rc==0){
+                        //Name of the field is to be changed
+                        rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_NAME
+                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    }
                     break;
                 case Request.EDIT_BIRTH:
                     //Artist birth year is to be changed
@@ -514,6 +618,33 @@ public class RequestHandler implements Runnable {
         }
 
         return -1;
+    }
+
+    /**
+     * Checks if a given name of an item in a given table as parameter already exists in the database
+     * @param name
+     * @param table
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if item already exists, 0 otherwise
+     */
+    private int checkIfNameExists(String name, String table){
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT name FROM \"" + table + "\" WHERE name=\"" + name + "\";");
+            if(!rs.next()){
+                System.out.println("No item with given name found");
+                connection.close();
+                return 0;
+            }
+
+            connection.close();
+            return -1;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
     }
 
     /**
