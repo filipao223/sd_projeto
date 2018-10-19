@@ -379,6 +379,24 @@ public class RequestHandler implements Runnable {
         return null;
     }
 
+    /**
+     * First method to be called if the user requests an edit.
+     * <p>
+     * First step is to parse the string received in the UDP datagram into 4 different strings:
+     * <u>
+     *     <li><b>Code:</b> determines which type of resource to edit, music, album or artist</li>
+     *     <li><b>Attribute:</b> which field of that resource it is to be changed</li>
+     *     <li><b>Name:</b> which resource the user wants to change, for example, name of the album</li>
+     *     <li><b>NewValue:</b> new value of that field</li>
+     * </u>
+     * <p>
+     * It then calls {@link #attributeEdit(int, String, String, String)} that will change that attribute
+     * in the database
+     * @param user editor that requested the change
+     * @param action string that holds which information to change and where
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the field was not changed
+     * and o if successful
+     */
     private int managerHandler(String user, String action){
         try{
             //Parse action string
@@ -407,6 +425,16 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Edits given attribute as parameter in the database of given item name. Attribute can be a name, birth year or genre,
+     * also receives which table to change as parameter
+     * @param attribute column in the database to change
+     * @param name name of the item in the table
+     * @param newValue new value of the attribute
+     * @param table table in which to change the attribute
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the field was not changed for whatever reason and
+     * 0 if successful
+     */
     private int attributeEdit(int attribute, String name, String newValue, String table) {
         System.out.println("Entered attributeEdit");
         try{
@@ -488,12 +516,18 @@ public class RequestHandler implements Runnable {
         return -1;
     }
 
-    private int checkIfArtistExists(String newValue) {
+    /**
+     * Simple method that checks if a given artist as parameter exists in the database
+     * @param artist
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the artist was not found
+     * and the artist's id in the database if successful
+     */
+    private int checkIfArtistExists(String artist) {
         try{
             connect();
             Statement statement = connection.createStatement();
 
-            ResultSet rs = statement.executeQuery("SELECT id FROM Artists WHERE name=\"" + newValue + "\";");
+            ResultSet rs = statement.executeQuery("SELECT id FROM Artists WHERE name=\"" + artist + "\";");
             if(!rs.next()){
                 System.out.println("No artist with given name found");
                 connection.close();
@@ -510,12 +544,18 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private int checkIfAlbumExists(String newValue) {
+    /**
+     * Simple method that checks if a given album as parameter exists in the database
+     * @param album
+     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the album was not found
+     * and the album's id in the database if successful
+     */
+    private int checkIfAlbumExists(String album) {
         try{
             connect();
             Statement statement = connection.createStatement();
 
-            ResultSet rs = statement.executeQuery("SELECT id FROM Albums WHERE name=\"" + newValue + "\";");
+            ResultSet rs = statement.executeQuery("SELECT id FROM Albums WHERE name=\"" + album + "\";");
             if(!rs.next()){
                 System.out.println("No album with given name found");
                 return -1;
