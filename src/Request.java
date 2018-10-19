@@ -1,3 +1,6 @@
+/**
+ * Class that contains request codes used in MulticastServer and RMIServer
+ */
 public class Request {
     //Features
     protected static final int LOGIN             = 1;  //fazer login
@@ -17,7 +20,7 @@ public class Request {
     protected static final int CALLBACK          = 13; //Packet returned after processing in server
     protected static final int NEW_SERVER        = 30; //Novo servidor criado, novos pacotes podem escolhe-lo
     protected static final int SERVER_DOWN       = 31; //Servidor foi abaixo, novos pacotes não o escolhem
-    protected static final int ADD_MUSIC         = 34; //Adiciona musicas à base de dados
+    protected static final int UPLOAD_MUSIC      = 38; //Upload de musicas para o servidor
 
     //Edit
     protected static final int EDIT_ALBUM        = 15; //Editar info de albums
@@ -33,6 +36,10 @@ public class Request {
     protected static final int EDIT_FIELD_ALBUMS = 25; //Lista de albums de um artista
     protected static final int ADD_ARTIST        = 32; //Adiciona artistas à base de dados
     protected static final int ADD_ALBUM         = 33; //Adiciona albums à base de dados
+    protected static final int ADD_MUSIC         = 34; //Adiciona musicas à base de dados
+    protected static final int REMOVE_ARTIST     = 35; //Remove um artista
+    protected static final int REMOVE_ALBUM      = 36; //Remove um album
+    protected static final int REMOVE_MUSIC      = 37; //Remove uma musica da base de dados
 
     //Pesquisa
     protected static final int SEARCH_ALBUM      = 26; //Pesquisa relacionada com albums
