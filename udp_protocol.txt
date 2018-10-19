@@ -60,7 +60,39 @@ logout
 --> username : string
 <-- resposta : callback
 
-gerir
+gerir-add
+
+--> username : string
+--> action : string
+/*---Formato acao*/
+Usar valores em request (Request.ADD_ALBUM, Request.ADD_ARTIST)
+Cada valor separado por "_"
+1.album, artist
+2. Valores sao obrigatorios para a criaçao na base de dados
+-album: name
+-artist: name
+Exemplo:
+album_"nome do album"
+(usando os valores de Request em vez de strings:
+ 33_"nome do album")
+
+gerir-remove
+
+--> username : string
+--> action : string
+/*---Formato acao*/
+Usar valores em request (Request.REMOVE_ALBUM, Request.REMOVE_ARTIST)
+Cada valor separado por "_"
+1.album, artist
+2. Valores sao obrigatorios para a remoçao da base de dados
+-album: name
+-artist: name
+Exemplo:
+album_"nome do album"
+(usando os valores de Request em vez de strings:
+ 33_"nome do album")
+
+gerir-edit
 
 --> username : string
 --> action : string
