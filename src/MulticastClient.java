@@ -146,6 +146,104 @@ class MulticastUser extends Thread {
                     readKeyboard = keyboardScanner.nextLine();
                     data.put("username", readKeyboard);
                 }
+                else if(readKeyboard.matches("2")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+                    System.out.println("Which data type to edit?(music, album or artist): ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    String action = "";
+
+                    //Birth date needs to be checked for proper format
+                    boolean isBirth = false;
+
+                    if (readKeyboard.matches("music")){
+                        action = action.concat(String.valueOf(Request.EDIT_MUSIC)+"_");
+                        System.out.println("Which field to edit?(name,year,album,artist): ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        if(readKeyboard.matches("name")){
+                            action = action.concat(String.valueOf(Request.EDIT_NAME)+"_");
+                        }
+                        else if (readKeyboard.matches("year")){
+                            action = action.concat(String.valueOf(Request.EDIT_YEAR)+"_");
+                        }
+                        else if (readKeyboard.matches("album")){
+                            action = action.concat(String.valueOf(Request.EDIT_FIELD_ALBUMS)+"_");
+                        }
+                        else if (readKeyboard.matches("artist")){
+                            action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST)+"_");
+                        }
+                        else{
+                            System.out.println("No attribute with that name");
+                            continue;
+                        }
+                    }
+                    else if (readKeyboard.matches("album")){
+                        action = action.concat(String.valueOf(Request.EDIT_ALBUM)+"_");
+                        System.out.println("Which field to edit?(name,year,artist,genre,description): ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        if(readKeyboard.matches("name")){
+                            action = action.concat(String.valueOf(Request.EDIT_NAME)+"_");
+                        }
+                        else if (readKeyboard.matches("year")){
+                            action = action.concat(String.valueOf(Request.EDIT_YEAR)+"_");
+                        }
+                        else if (readKeyboard.matches("artist")){
+                            action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST)+"_");
+                        }
+                        else if (readKeyboard.matches("description")){
+                            action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION)+"_");
+                        }
+                        else if (readKeyboard.matches("genre")){
+                            action = action.concat(String.valueOf(Request.EDIT_GENRE)+"_");
+                        }
+                        else{
+                            System.out.println("No attribute with that name");
+                            continue;
+                        }
+                    }
+                    else if (readKeyboard.matches("artist")){
+                        action = action.concat(String.valueOf(Request.EDIT_ARTIST)+"_");
+                        System.out.println("Which field to edit?(name,birth,description): ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        if(readKeyboard.matches("name")){
+                            action = action.concat(String.valueOf(Request.EDIT_NAME)+"_");
+                        }
+                        else if (readKeyboard.matches("birth")){
+                            action = action.concat(String.valueOf(Request.EDIT_BIRTH)+"_");
+                            isBirth = true;
+                        }
+                        else if (readKeyboard.matches("description")){
+                            action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION)+"_");
+                        }
+                        else{
+                            System.out.println("No attribute with that name");
+                            continue;
+                        }
+                    }
+                    else{
+                        System.out.println("No type found");
+                        continue;
+                    }
+
+                    System.out.println("Which item is to be edited?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    action = action.concat(readKeyboard+"_");
+                    System.out.println("New value?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+
+                    //Birth date needs to be checked for proper format
+                    if (isBirth){
+                        if (!readKeyboard.matches("^\\s*(3[01]|[12][0-9]|0?[1-9])-(1[012]|0?[1-9])-((?:19|20)\\d{2})\\s*$")){
+                            System.out.println("Bad date format, should be d-m-yyyy");
+                            continue;
+                        }
+                    }
+
+                    action = action.concat(readKeyboard);
+                    System.out.println("Produced action: " + action);
+                    data.put("action", action);
+                }
 
                 byte[] buffer = s.serialize(data);
 

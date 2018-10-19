@@ -11,27 +11,37 @@ import java.util.*;
  * Runnable that handles a single UDP datagram
  */
 public class RequestHandler implements Runnable {
-    private String MULTICAST_ADDRESS = "224.3.2.1";
-    private int PORT = 4321;
+    private static String MULTICAST_ADDRESS = "224.3.2.1";
+    private static int PORT = 4321;
 
-    private DatagramPacket clientPacket;
-    private Map<String, Object> data = null;
+    private static DatagramPacket clientPacket;
+    private static Map<String, Object> data = null;
 
-    private Serializer s = new Serializer();
+    private static Serializer s = new Serializer();
 
-    private Connection connection;
-    private int serverNumber;
+    private static Connection connection;
+    private static int serverNumber;
 
-    private String new_editor_note = "You have been made editor by user ";
-    private String new_edit = "New edit: ";
+    private static String new_editor_note = "You have been made editor by user ";
+    private static String new_edit = "New edit: ";
 
-    private int NO_LOGIN        = 1;
-    private int NO_USER_FOUND   = 2;
-    private int ALREADY_LOGIN   = 3;
-    private int ALREADY_EDITOR  = 4;
-    private int NOT_EDITOR      = 5;
-    private int DB_EXCEPTION    = 6;
-    private int TIMEOUT         = 7;
+    private static int NO_LOGIN        = 1;
+    private static int NO_USER_FOUND   = 2;
+    private static int ALREADY_LOGIN   = 3;
+    private static int ALREADY_EDITOR  = 4;
+    private static int NOT_EDITOR      = 5;
+    private static int DB_EXCEPTION    = 6;
+    private static int TIMEOUT         = 7;
+
+    private static String DB_FIELD_NAME        = "name"       ;
+    private static String DB_FIELD_YEAR        = "year"       ;
+    private static String DB_FIELD_ALBUM       = "album"      ;
+    private static String DB_FIELD_ARTIST      = "artist"     ;
+    private static String DB_FIELD_BIRTH       = "birth"      ;
+    private static String DB_FIELD_DESCRIPTION = "description";
+    private static String DB_FIELD_GENRE       = "genre"      ;
+    private static String DB_FIELD_LYRICS      = "lyrics"     ;
+
 
     /**
      * Constructor for request handler, uses the UDP datagram received by the server and a database
@@ -92,6 +102,7 @@ public class RequestHandler implements Runnable {
         //----------------------------------------------------------------------------------
                 case Request.LOGIN:
                 case Request.LOGOUT:
+                    // TODO update timestamp on login even if user already is logged in
                     try{
                         System.out.println("User wants to login/logout");
                         String user = (String)data.get("username");
@@ -182,6 +193,9 @@ public class RequestHandler implements Runnable {
                             else{
                                 //Make the edit
                                 rc = managerHandler(user, action);
+                                if (rc == DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                else if (rc==-1) sendCallback(user, "Field not edited", null);
+                                else sendCallback(user, "Field edited", null);
                             }
                         }
                     } catch (IOException e) {
@@ -366,7 +380,6 @@ public class RequestHandler implements Runnable {
     }
 
     private int managerHandler(String user, String action){
-        // TODO manager handler
         try{
             //Parse action string
             String[] actionSplit = action.split("_");
@@ -379,32 +392,143 @@ public class RequestHandler implements Runnable {
             //Check if edit is on album, music or artist
             int code = Integer.parseInt(actionSplit[0]);
             switch(code){
+                case Request.EDIT_MUSIC:
+                    return attributeEdit(attribute, name, newValue, "Music");
                 case Request.EDIT_ALBUM:
-
-                    int rc = attributeEdit(attribute, name, newValue);
+                    return attributeEdit(attribute, name, newValue, "Albums");
+                case Request.EDIT_ARTIST:
+                    return attributeEdit(attribute, name, newValue, "Artists");
             }
+
+            return -1;
         } catch(Exception e){
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    private int attributeEdit(int attribute, String name, String newValue, String table) {
+        System.out.println("Entered attributeEdit");
+        try{
+            //Check if attribute is to be edited
+            connect();
+            Statement statement = connection.createStatement();
+            int rc = -1;
+            switch (attribute){
+                // TODO prevent new name from being an existing one
+                case Request.EDIT_NAME:
+                    //Name of the field is to be changed
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_NAME
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_BIRTH:
+                    //Artist birth year is to be changed
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_BIRTH
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_GENRE:
+                    //Album genre is to be changed
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_GENRE
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_LYRICS:
+                    //Music lyrics
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_LYRICS
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_DESCRIPTION:
+                    //Album descritpion
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_DESCRIPTION
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_YEAR:
+                    //Album or music year
+                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_YEAR
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    break;
+                case Request.EDIT_FIELD_ALBUMS:
+                case Request.EDIT_FIELD_ARTIST:
+                    //Albums field in music | Artist field in albums and music
+                    //Check if new album or artist id exists in database and returns it
+                    int id = (attribute==Request.EDIT_FIELD_ALBUMS ? checkIfAlbumExists(newValue) : checkIfArtistExists(newValue));
+                    connect();
+                    if (id==DB_EXCEPTION){
+                        System.out.println("Error updating value");
+                        connection.close();
+                        return DB_EXCEPTION;
+                    }
+                    else if (id==-1){
+                        connection.close();
+                        return -1;
+                    }
+                    else{
+                        //Update the value
+                        rc = statement.executeUpdate("UPDATE " + table + " SET \""
+                                + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
+                                +  "\"=\"" + id + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                        connection.close();
+                        return rc;
+                    }
+            }
+
+            if (rc==-1){
+                System.out.println("Error updating value");
+                connection.close();
+                return DB_EXCEPTION;
+            }
+            else{
+                System.out.println("Field edited");
+                connection.close();
+                return 0;
+            }
+        } catch (Exception e){
             e.printStackTrace();
         }
 
         return -1;
     }
 
-    private int attributeEdit(int attribute, String name, String newValue) {
-
+    private int checkIfArtistExists(String newValue) {
         try{
-            //Check if attribute is to be edited
             connect();
-            switch (attribute){
-                case Request.EDIT_NAME:
-                    //Name of the field is to be changed
-                    // TODO edit attribute "name"
-            }
-        } catch (Exception e){
-            e.printStackTrace();
-        }
+            Statement statement = connection.createStatement();
 
-        return 0;
+            ResultSet rs = statement.executeQuery("SELECT id FROM Artists WHERE name=\"" + newValue + "\";");
+            if(!rs.next()){
+                System.out.println("No artist with given name found");
+                connection.close();
+                return -1;
+            }
+
+            int id = rs.getInt("id");
+            connection.close();
+            return id;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
+    }
+
+    private int checkIfAlbumExists(String newValue) {
+        try{
+            connect();
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery("SELECT id FROM Albums WHERE name=\"" + newValue + "\";");
+            if(!rs.next()){
+                System.out.println("No album with given name found");
+                return -1;
+            }
+
+            int id = rs.getInt("id");
+            connection.close();
+            return id;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return DB_EXCEPTION;
+        }
     }
 
     /**
@@ -582,7 +706,7 @@ public class RequestHandler implements Runnable {
                 //Logged in, now check if session should be timed out
                 long unixTime = System.currentTimeMillis() / 1000L;
                 //If the difference between now seconds and timestamp is bigger than 1800 seconds (30 minutes)
-                if((unixTime - rs.getLong("timestamp")) > 30){
+                if((unixTime - rs.getLong("timestamp")) > 1800){
                     //Set login state to logged out
                     statement.executeUpdate("UPDATE Users SET login=\"0\" WHERE name=\""
                             + user + "\";");
