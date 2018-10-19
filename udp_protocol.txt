@@ -69,9 +69,9 @@ Usar valores em Request (Request.EDIT_NAME, Request.EDIT_MUSIC, ...)
 Cada valor separada por "_"
 1. album, music, artist
 2.
--album: name, year, artist, description, genre, albums
+-album: name, year, artist, description, genre
 -music: name, album, artist, lyrics, year
--artist: name, albums, birth, description
+-artist: name, birth, description
 3. name of artist/album/music
 4. new value (string)
 Exemplo:
