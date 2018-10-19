@@ -156,13 +156,16 @@ class MulticastUser extends Thread {
 
                     if (readKeyboard.matches("add")){
                         String action = "";
-                        System.out.println("Album or artist?: ");
+                        System.out.println("Album ,music or artist?: ");
                         readKeyboard = keyboardScanner.nextLine();
                         if (readKeyboard.matches("album")){
                             action = action.concat(String.valueOf(Request.ADD_ALBUM)+"_");
                         }
                         else if (readKeyboard.matches("artist")){
                             action = action.concat(String.valueOf(Request.ADD_ARTIST)+"_");
+                        }
+                        else if (readKeyboard.matches("music")){
+                            action = action.concat(String.valueOf(Request.ADD_MUSIC)+"_");
                         }
                         else{
                             System.out.println("Bad token");
@@ -271,13 +274,16 @@ class MulticastUser extends Thread {
                     }
                     else if (readKeyboard.matches("remove")){
                         String action = "";
-                        System.out.println("Album or artist?: ");
+                        System.out.println("Album, music or artist?: ");
                         readKeyboard = keyboardScanner.nextLine();
                         if (readKeyboard.matches("album")){
                             action = action.concat(String.valueOf(Request.REMOVE_ALBUM)+"_");
                         }
                         else if (readKeyboard.matches("artist")){
                             action = action.concat(String.valueOf(Request.REMOVE_ARTIST)+"_");
+                        }
+                        else if (readKeyboard.matches("music")){
+                            action = action.concat(String.valueOf(Request.REMOVE_MUSIC)+"_");
                         }
                         else{
                             System.out.println("Bad token");

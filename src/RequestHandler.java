@@ -431,15 +431,19 @@ public class RequestHandler implements Runnable {
                     return attributeEdit(attribute, name, newValue, table);
                 case Request.ADD_ALBUM:
                 case Request.ADD_ARTIST:
+                case Request.ADD_MUSIC:
                     name = actionSplit[1];
                     if (code== Request.ADD_ALBUM) table = "Albums";
-                    else table = "Artists";
+                    else if (code==Request.ADD_ARTIST) table = "Artists";
+                    else table = "Music";
                     return addItem(name, table);
                 case Request.REMOVE_ALBUM:
                 case Request.REMOVE_ARTIST:
+                case Request.REMOVE_MUSIC:
                     name = actionSplit[1];
                     if (code== Request.REMOVE_ALBUM) table = "Albums";
-                    else table = "Artists";
+                    else if (code== Request.REMOVE_ARTIST) table = "Artists";
+                    else table = "Music";
                     return removeItem(name, table);
             }
 
