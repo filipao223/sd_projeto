@@ -89,11 +89,11 @@ public class RequestHandler implements Runnable {
                         e.printStackTrace();
                     }
                     break;
-
+        //----------------------------------------------------------------------------------
                 case Request.LOGIN:
                 case Request.LOGOUT:
                     try{
-                        System.out.println("User wants to login");
+                        System.out.println("User wants to login/logout");
                         String user = (String)data.get("username");
                         String password = (String) data.get("password");
 
@@ -129,7 +129,7 @@ public class RequestHandler implements Runnable {
                         e.printStackTrace();
                     }
                     break;
-
+        //----------------------------------------------------------------------------------
                 case Request.MAKE_EDITOR:
                     String editor = null;
                     String newEditor = null;
@@ -163,12 +163,30 @@ public class RequestHandler implements Runnable {
                         e.printStackTrace();
                     }
                     break;
+        //----------------------------------------------------------------------------------
+                case Request.MANAGE:
+                    try{
+                        String user = (String) data.get("username");
+                        String action = (String) data.get("action");
 
-                case Request.DOWNLOAD:
-                    //Get username
-                    String user = (String) data.get("username");
-                    String message = "User \"" + user + "\" wants to download";
-
+                        int rc = checkLoginState(user);
+                        if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                        else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                        else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
+                        else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
+                        else{
+                            //Check if is editor
+                            rc = checkIfEditor(user);
+                            if (rc==NOT_EDITOR) sendCallback(user, "User is not editor", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                            else{
+                                //Make the edit
+                                rc = managerHandler(user, action);
+                            }
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
             }
         }
     }
@@ -345,6 +363,48 @@ public class RequestHandler implements Runnable {
         }
 
         return null;
+    }
+
+    private int managerHandler(String user, String action){
+        // TODO manager handler
+        try{
+            //Parse action string
+            String[] actionSplit = action.split("_");
+
+            //Get which attribute to update
+            int attribute = Integer.parseInt(actionSplit[1]);
+            String name = actionSplit[2]; //Name of the item (album, music or artist)
+            String newValue = actionSplit[3]; //New value of the attribute
+
+            //Check if edit is on album, music or artist
+            int code = Integer.parseInt(actionSplit[0]);
+            switch(code){
+                case Request.EDIT_ALBUM:
+
+                    int rc = attributeEdit(attribute, name, newValue);
+            }
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+
+        return -1;
+    }
+
+    private int attributeEdit(int attribute, String name, String newValue) {
+
+        try{
+            //Check if attribute is to be edited
+            connect();
+            switch (attribute){
+                case Request.EDIT_NAME:
+                    //Name of the field is to be changed
+                    // TODO edit attribute "name"
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return 0;
     }
 
     /**
