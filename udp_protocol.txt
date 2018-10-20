@@ -115,8 +115,14 @@ music_name_"music1"_"nome de musica novo"
 
 pesquisa 
 
---> type : int (Valores em Request[Request.SEARCH_ALBUM, ...])
---> name : string
+--> user : string
+--> action : string
+/*---Formato acao*/
+1.Tipo de pesquisa - album, artist, music
+2.Parametros pesquisa:
+-album: name, artist, genre (pelo menos 1 destes)
+-music: name, artist, album (pelo menos 1)
+-artist: name
 <-- resposta : callback
 
 consulta album 

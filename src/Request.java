@@ -45,4 +45,13 @@ public class Request {
     protected static final int SEARCH_ALBUM      = 26; //Pesquisa relacionada com albums
     protected static final int SEARCH_MUSIC      = 27; //Pesquisa relacionada com musicas
     protected static final int SEARCH_ARTIST     = 28; //Pesquisa relacionada com artistas
+    protected static final int SEARCH_BY_NAME    = 39; //Pesquisa por nome
+    protected static final int SEARCH_BY_ARTIST  = 40; //Pesquisa por artista
+    protected static final int SEARCH_BY_GENRE   = 41; //Pesquisa por genero
+    protected static final int SEARCH_BY_ALBUM   = 42; //Pesquisa por album
+
+    //Internal
+    protected static final int REQUEST_NUMBER    = 43;
+    protected static final int ASSIGN_NUMBER     = 44;
+    protected static final int CHECK_SERVER_UP   = 45;
 }
