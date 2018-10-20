@@ -36,28 +36,55 @@ public class MulticastServer extends Thread {
     public static void main(String[] args) {
         //Request server number and database connection
         try {
-            Socket serverConnection = new Socket("localhost", PORT_DBCONNECTION);
-            DataInputStream in = new DataInputStream(serverConnection.getInputStream());
-            System.out.println(in);
-            bufferReceive = new byte[2048];
-            try{
-                in.readFully(bufferReceive);
-            } catch (EOFException e){
-                System.out.println("Received data from DBConnection");
+            Map<String, Object> dataIn = null;
+            while(true){
+                System.out.println("Requesting server number and database connection");
+                //Send request
+                MulticastSocket serverConnection = new MulticastSocket();
+                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                serverConnection.joinGroup(group);
+                bufferReceive = new byte[256];
+                Map<String, Object> data = new HashMap<>(); Serializer serializer = new Serializer();
+                data.put("feature", Request.REQUEST_NUMBER);
+                bufferReceive = serializer.serialize(data);
+                DatagramPacket out = new DatagramPacket(bufferReceive, bufferReceive.length, group, PORT_DBCONNECTION);
+                serverConnection.send(out);
+
+                //Now wait for the response
+                serverConnection = new MulticastSocket(PORT_DBCONNECTION);
+                serverConnection.joinGroup(group);
+                serverConnection.setSoTimeout(5000);
+                bufferReceive = new byte[2048];
+                try{
+                    DatagramPacket packet = new DatagramPacket(bufferReceive, bufferReceive.length);
+                    serverConnection.receive(packet);
+                    Serializer s = new Serializer();
+                    dataIn = (Map<String, Object>) s.deserialize(bufferReceive);
+                    break;
+                } catch (ClassNotFoundException | SocketTimeoutException e){
+                    if (e instanceof ClassNotFoundException){
+                        System.out.println("Error getting server number and connection from DBConnection, retrying");
+                    }
+                    else{
+                        System.out.println("No response in allocated time, retrying");
+                    }
+                }
             }
-            Map<String, Object> dataIn;
-            Serializer s = new Serializer();
-            dataIn = (Map<String, Object>) s.deserialize(bufferReceive);
 
             //Start the server
-            MulticastServer server =
-                    new MulticastServer((Connection)dataIn.get("connection"), (int)dataIn.get("serverNumber"));
+            MulticastServer server = new MulticastServer((Connection)dataIn.get("connection"), (int)dataIn.get("serverNumber"));
             server.start();
             notify((int)dataIn.get("serverNumber"));
             //Notify RMI Server that it is available to receive requests
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            System.out.println("A DBConnection instance running is required");
+            if(e instanceof SocketTimeoutException){
+                System.out.println("No response in allocated time");
+                e.printStackTrace();
+            }
+            else{
+                e.printStackTrace();
+            }
         }
     }
 
@@ -117,7 +144,6 @@ public class MulticastServer extends Thread {
                 bufferReceive = new byte[256];
                 DatagramPacket packetIn = new DatagramPacket(bufferReceive, bufferReceive.length);
                 socket.receive(packetIn);
-
                 try{
                     handler = new RequestHandler(packetIn, mainDatabaseConnection, serverNumber);
                     executor.submit(handler);

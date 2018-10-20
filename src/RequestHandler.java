@@ -14,7 +14,7 @@ public class RequestHandler implements Runnable {
     private static String MULTICAST_ADDRESS = "224.3.2.1";
     private static int PORT = 4321;
 
-    private static DatagramPacket clientPacket;
+    private DatagramPacket clientPacket;
     private static Map<String, Object> data = null;
 
     private static Serializer s = new Serializer();
@@ -52,8 +52,8 @@ public class RequestHandler implements Runnable {
      */
     RequestHandler(DatagramPacket packet, Connection connection, int serverNumber){
         this.clientPacket = packet;
-        this.connection = connection;
-        this.serverNumber = serverNumber;
+        RequestHandler.connection = connection;
+        RequestHandler.serverNumber = serverNumber;
     }
 
     @SuppressWarnings("unchecked")
@@ -75,136 +75,252 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
-        if (data != null){
-            //Check if server should be handling this packet
-            int server = Integer.parseInt((String)data.get("server"));
-            if(server != serverNumber){
-                System.out.println("Server " + serverNumber + " aborted packet processing");
-                return;
-            }
-            //Check which feature user wants to do
-            int code = Integer.parseInt((String)data.get("feature"));
-            switch(code){
-                case Request.REGISTER:
+        try{
+            if (data != null){
+                //First check if request is about checking if server is up
+                if (Integer.parseInt((String)data.get("feature")) == Request.CHECK_SERVER_UP){
+                    //It is, send server number in a datagram
                     try{
-                        String user = (String) data.get("username");
-                        String pass = (String) data.get("password");
+                        //Internal use
+                        //Send back server number
+                        Map<String, Object> callback = new HashMap<>();
+                        callback.put("feature", String.valueOf(Request.NEW_SERVER));
+                        callback.put("new_server", serverNumber);
+                        //Create multicast socket
+                        MulticastSocket socket = new MulticastSocket();
 
-                        int rc = registerHandler(user, pass);
+                        byte[] buffer = s.serialize(callback);
 
-                        if (rc==NO_USER_FOUND || rc==-1) sendCallback(user, "User already exists", null);
-                        else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
-                        else sendCallback(user, "User registered", null);
+                        //Create udp packet
+                        InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                        socket.send(packet);
+                        return;
+                    } catch (UnknownHostException e) {
+                        e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    break;
-        //----------------------------------------------------------------------------------
-                case Request.LOGIN:
-                case Request.LOGOUT:
-                    try{
-                        System.out.println("User wants to login/logout");
-                        String user = (String)data.get("username");
-                        String password = (String) data.get("password");
+                }
 
-                        //Check in db
-                        int rc = loginHandler(user, password, code);
+                //Check if server should be handling this packet
+                int server = Integer.parseInt((String)data.get("server"));
+                if(server != serverNumber){
+                    System.out.println("Server " + serverNumber + " aborted packet processing");
+                    return;
+                }
+                //Check which feature user wants to do
+                int code = Integer.parseInt((String)data.get("feature"));
+                // TODO Consultar detalhes de álbum (incluindo músicas e críticas)
+                // TODO Escrever crítica sobre um álbum (com pontuação)
+                // TODO Consultar detalhes de artista (e.g., discografia, biografia)
+                // TODO Notificação imediata de re-edição de descrição de álbum (online users)
+                // TODO Upload de ficheiro para associar a uma música existente
+                // TODO Partilhar um ficheiro musical e permitir o respetivo download
+                switch(code){
+                    case Request.REGISTER:
+                        try{
+                            String user = (String) data.get("username");
+                            String pass = (String) data.get("password");
 
-                        if (code == Request.LOGIN){
-                            if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
-                            else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                            int rc = registerHandler(user, pass);
+
+                            if (rc==NO_USER_FOUND || rc==-1) sendCallback(user, "User already exists", null);
                             else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
-                            else if (rc==-1) sendCallback(user, "Wrong user/password", null);
-                            else{
-                                sendCallback(user, "User logged in", null);
-                                System.out.println("Checking if notes");
-                                //Check if there are notifications
-                                String notes = getAllNotes(user);
-                                if(notes != null){
-                                    System.out.println("Sending notes");
-                                    //There are notes, send them
-                                    sendMultipleNotifications(user, notes);
-                                    System.out.println("Notes sent");
+                            else sendCallback(user, "User registered", null);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        break;
+            //----------------------------------------------------------------------------------
+                    case Request.LOGIN:
+                    case Request.LOGOUT:
+                        try{
+                            System.out.println("User wants to login/logout");
+                            String user = (String)data.get("username");
+                            String password = (String) data.get("password");
+
+                            //Check in db
+                            int rc = loginHandler(user, password, code);
+
+                            if (code == Request.LOGIN){
+                                if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
+                                else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                else if (rc==-1) sendCallback(user, "Wrong user/password", null);
+                                else{
+                                    sendCallback(user, "User logged in", null);
+                                    System.out.println("Checking if notes");
+                                    //Check if there are notifications
+                                    String notes = getAllNotes(user);
+                                    if(notes != null){
+                                        System.out.println("Sending notes");
+                                        //There are notes, send them
+                                        sendMultipleNotifications(user, notes);
+                                        System.out.println("Notes sent");
+                                    }
+                                    else System.out.println("No notes to send");
                                 }
-                                else System.out.println("No notes to send");
                             }
-                        }
-                        else{
-                            if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
-                            else sendCallback(user, "User logged out", null);
-                        }
-
-                    } catch ( IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-        //----------------------------------------------------------------------------------
-                case Request.MAKE_EDITOR:
-                    String editor = null;
-                    String newEditor = null;
-                    try{
-                        editor = (String) data.get("editor");
-                        newEditor = (String) data.get("newEditor");
-
-                        int rc = checkLoginState(editor);
-                        if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
-                        else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
-                        else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
-                        else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null);
-                        else{
-                            //Check if is editor
-                            rc = checkIfEditor(editor);
-                            if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                             else{
-                                //Make editor
-                                rc = makeEditorHandler(editor, newEditor);
-                                if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
+                                if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                else sendCallback(user, "User logged out", null);
+                            }
+
+                        } catch ( IOException e) {
+                            e.printStackTrace();
+                        }
+                        break;
+            //----------------------------------------------------------------------------------
+                    case Request.MAKE_EDITOR:
+                        String editor = null;
+                        String newEditor = null;
+                        try{
+                            editor = (String) data.get("editor");
+                            newEditor = (String) data.get("newEditor");
+
+                            int rc = checkLoginState(editor);
+                            if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                            else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
+                            else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null);
+                            else{
+                                //Check if is editor
+                                rc = checkIfEditor(editor);
+                                if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null);
                                 else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                                 else{
-                                    sendCallback(editor, "Made new editor", null);
-                                    sendSingleNotification(newEditor, editor, null, Request.NOTE_EDITOR);
+                                    //Make editor
+                                    rc = makeEditorHandler(editor, newEditor);
+                                    if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
+                                    else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                                    else{
+                                        sendCallback(editor, "Made new editor", null);
+                                        sendSingleNotification(newEditor, editor, null, Request.NOTE_EDITOR);
+                                    }
                                 }
                             }
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
+                        break;
+            //----------------------------------------------------------------------------------
+                    case Request.MANAGE:
+                        try{
+                            String user = (String) data.get("username");
+                            String action = (String) data.get("action");
 
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-        //----------------------------------------------------------------------------------
-                case Request.MANAGE:
-                    try{
-                        String user = (String) data.get("username");
-                        String action = (String) data.get("action");
-
-                        int rc = checkLoginState(user);
-                        if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                        else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
-                        else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
-                        else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
-                        else{
-                            //Check if is editor
-                            rc = checkIfEditor(user);
-                            if (rc==NOT_EDITOR) sendCallback(user, "User is not editor", null);
+                            int rc = checkLoginState(user);
+                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
                             else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
+                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
                             else{
-                                //Make the edit
-                                rc = managerHandler(user, action);
-                                if (rc == DB_EXCEPTION) sendCallback(user, "Database error", null);
-                                else if (rc==-1) sendCallback(user, "Field not edited", null);
-                                else if (rc==-2) sendCallback(user, "Item not added", null);
-                                else if (rc==-3) sendCallback(user, "Item not removed", null);
-                                else if (rc==1) sendCallback(user, "Item added", null);
-                                else if (rc==2) sendCallback(user, "Item removed", null);
-                                else sendCallback(user, "Field edited", null);
+                                //Check if is editor
+                                rc = checkIfEditor(user);
+                                if (rc==NOT_EDITOR) sendCallback(user, "User is not editor", null);
+                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                else{
+                                    //Make the edit
+                                    rc = managerHandler(user, action);
+                                    if (rc == DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                    else if (rc==-1) sendCallback(user, "Field not edited", null);
+                                    else if (rc==-2) sendCallback(user, "Item not added", null);
+                                    else if (rc==-3) sendCallback(user, "Item not removed", null);
+                                    else if (rc==1) sendCallback(user, "Item added", null);
+                                    else if (rc==2) sendCallback(user, "Item removed", null);
+                                    else sendCallback(user, "Field edited", null);
+                                }
                             }
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                        break;
+            //----------------------------------------------------------------------------------
+                    case Request.SEARCH:
+                        try{
+                            String user = (String) data.get("username");
+                            String action = (String) data.get("action");
+
+                            int rc = checkLoginState(user);
+                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
+                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
+                            else{
+                                //Search
+                                String results = searchHandler(user, action);
+                                if (results == null) sendCallback(user, "No results found", null);
+                                else sendCallback(user, "Found results", results);
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                }
             }
+        } catch (Exception e){
+            System.out.println("Server aborted packet processing unexpectedly");
+        }
+    }
+
+    private String searchHandler(String user, String action) {
+        try{
+            //Split the action string
+            System.out.println("Action: " + action);
+            String[] splitString = action.split("_");
+            //Get the table in which to search
+            String table;
+            int code = Integer.parseInt(splitString[0]);
+            if (code==Request.SEARCH_ALBUM){
+                table = "Albums";
+            }
+            else if (code== Request.SEARCH_ARTIST){
+                table = "Artists";
+            }
+            else table = "Music";
+
+            //Get search parameters
+            String sqlQuery = "SELECT name FROM " + table + " WHERE ";
+            for(int i=1; i<splitString.length; i+=2){
+                if (Integer.parseInt(splitString[i])==Request.SEARCH_BY_NAME){
+                    sqlQuery = sqlQuery.concat("name LIKE \'%"+splitString[i+1]+"%\'");
+                }
+                else if (Integer.parseInt(splitString[i])==Request.SEARCH_BY_ALBUM){
+                    sqlQuery = sqlQuery.concat("album LIKE \'%"+splitString[i+1]+"%\'");
+                }
+                else if (Integer.parseInt(splitString[i])==Request.SEARCH_BY_ARTIST){
+                    sqlQuery = sqlQuery.concat("artist LIKE \'%"+splitString[i+1]+"%\'");
+                }
+                else if (Integer.parseInt(splitString[i])==Request.SEARCH_BY_GENRE){
+                    sqlQuery = sqlQuery.concat("genre LIKE \'%"+splitString[i+1]+"%\'");
+                }
+                if ((i+2)<splitString.length) sqlQuery = sqlQuery.concat(" AND ");
+            }
+            sqlQuery = sqlQuery.concat(";");
+            System.out.println("SQL produced is: " + sqlQuery);
+
+            //Execute query
+            connect();
+            Statement statement = connection.createStatement();
+
+            ResultSet rs = statement.executeQuery(sqlQuery);
+            if (!rs.next()){
+                System.out.println("No results");
+                return null;
+            }
+
+            String results = ""; //Concatenates results into a string
+
+            do{
+                results = results.concat(rs.getString("name")+"_");
+            } while (rs.next());
+
+            return results;
+        } catch (Exception e){
+            e.printStackTrace();
+            return null;
         }
     }
 
@@ -543,7 +659,6 @@ public class RequestHandler implements Runnable {
             Statement statement = connection.createStatement();
             int rc = -1;
             switch (attribute){
-                // TODO prevent new name from being an existing one
                 case Request.EDIT_NAME:
                     //Check if the new name doesn't already exists
                     rc = checkIfNameExists(newValue, table);
@@ -585,7 +700,7 @@ public class RequestHandler implements Runnable {
                 case Request.EDIT_FIELD_ALBUMS:
                 case Request.EDIT_FIELD_ARTIST:
                     //Albums field in music | Artist field in albums and music
-                    //Check if new album or artist id exists in database and returns it
+                    //Check if new album or artist exists in database and returns it's id
                     int id = (attribute==Request.EDIT_FIELD_ALBUMS ? checkIfAlbumExists(newValue) : checkIfArtistExists(newValue));
                     connect();
                     if (id==DB_EXCEPTION){
@@ -601,9 +716,9 @@ public class RequestHandler implements Runnable {
                         //Update the value
                         rc = statement.executeUpdate("UPDATE " + table + " SET \""
                                 + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
-                                +  "\"=\"" + id + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
                         connection.close();
-                        return rc;
+                        return 0;
                     }
             }
 
@@ -846,7 +961,7 @@ public class RequestHandler implements Runnable {
         callback.put("feature", String.valueOf(Request.CALLBACK));
         callback.put("username", user);
         callback.put("answer", resposta);
-        callback.put("optional", null);
+        callback.put("optional", optional);
 
         byte[] buffer = s.serialize(callback);
 
