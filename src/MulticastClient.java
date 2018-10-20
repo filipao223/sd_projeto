@@ -47,7 +47,6 @@ public class MulticastClient extends Thread {
                 byte[] buffer = new byte[2048];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet); //Recebe pacotes vindo dos servidores
-                System.out.println("Received packet");
 
                 //Cria uma task, e coloca-a na pool de threads
                 executor.submit(new DecodePacket(packet, serverNumbers));
@@ -348,13 +347,14 @@ class MulticastUser extends Thread {
                         readKeyboard = keyboardScanner.nextLine();
                         
                         //Check format
-                        if (!readKeyboard.matches("([a-zA-Z]+(?:_[a-zA-Z]+)*)")){
+                        // TODO arranjar esta expressao regular para so aceitar numeros em cada valor par (1_2_3_4)
+                        if (!readKeyboard.matches("([a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*)")){
                             System.out.println("Bad string format");
                             continue;
                         }
 
                         //Decode input
-                        String[] tokens = readKeyboard.split("\\_");
+                        String[] tokens = readKeyboard.split("_");
                         for(int i=0; i<tokens.length; i+=2){
                             if(tokens[i].matches("name")){
                                 action = action.concat(String.valueOf(Request.SEARCH_BY_NAME)+"_"+tokens[i+1]);
@@ -365,14 +365,16 @@ class MulticastUser extends Thread {
                             else if(tokens[i].matches("album")){
                                 action = action.concat(String.valueOf(Request.SEARCH_BY_ALBUM)+"_"+tokens[i+1]);
                             }
+                            if ((i+2)<tokens.length) action = action.concat("_");
                         }
                     }
                     else{
                         System.out.println("Bad token");
                         continue;
                     }
-                }
 
+                    data.put("action", action);
+                }
                 buffer = s.serialize(data);
 
                 group = InetAddress.getByName(MULTICAST_ADDRESS);
@@ -406,11 +408,18 @@ class DecodePacket implements Runnable{
 
 //=============================================DO TIPO CALLBACK=============================================================
             if (((String)data.get("feature")).matches("13")){
+                // TODO mudar a maneira de verificar se esta a receber resultados de pesquisa
                 System.out.println("------------Callback is: ");
                 System.out.println("Feature: " + data.get("feature"));
                 System.out.println("Username: " + data.get("username"));
                 System.out.println("Resposta: " + data.get("answer"));
-                System.out.println("Opcional: " + data.get("null"));
+                if (((String)data.get("answer")).matches("Found results")){
+                    String[] results = ((String)data.get("optional")).split("_");
+                    for (String s:results){
+                        System.out.println(s);
+                    }
+                }
+                System.out.println("Opcional: " + data.get("optional"));
                 System.out.println("-----------Done");
             }
 //=============================================NOTIFICAÇÂO NOVO EDITOR=============================================================
