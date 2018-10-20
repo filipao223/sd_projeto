@@ -129,20 +129,16 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 
 		try {
-			RMIServer s = new RMIServer();
+			RMIServer s_main = new RMIServer();
+			RMIServer s_backup = new RMIServer();
 			Registry r = LocateRegistry.createRegistry(1099);
-			r.rebind("MainServer", s);
+			r.rebind("MainServer", s_main);
 			System.out.println("Server ready.");
-		}catch (ExportException re){
-			try {
-				remake();
-			} catch (RemoteException e) {
-				e.printStackTrace();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			s_backup.remake();
 		}catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 
 	}
