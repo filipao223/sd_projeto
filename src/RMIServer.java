@@ -20,6 +20,42 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		super();
 	}
 
+	public static void remake() throws RemoteException, InterruptedException {
+		int vezes = 0;
+		while (true) {
+			Thread.sleep(1000);
+			Registry r = LocateRegistry.getRegistry(1099);
+			try {
+				System.out.println("À procura");
+				r.lookup("MainServer");
+			}catch (ExportException e){
+				System.out.println("Já existe um");
+			} catch (NotBoundException e) {
+				System.out.println("Nenhum server");
+				vezes += 1;
+				if(vezes == 5){
+					RMIServer s = new RMIServer();
+					r = LocateRegistry.createRegistry(1099);
+					r.rebind("MainServer", s);
+					System.out.println("Server ready.");
+					vezes = 0;
+					break;
+				}
+			} catch (ConnectException e) {
+				System.out.println("Nenhum server");
+				vezes += 1;
+				if(vezes == 5){
+					RMIServer s = new RMIServer();
+					r = LocateRegistry.createRegistry(1099);
+					r.rebind("MainServer", s);
+					System.out.println("Server ready.");
+					vezes = 0;
+					break;
+				}
+			}
+		}
+	}
+
 
 	public byte[] serialize(Object obj) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -30,6 +66,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public void subscribe(String name,Client c) throws RemoteException {
 		client.add(c);
+		System.out.println(c);
 	}
 
 
@@ -96,6 +133,14 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			Registry r = LocateRegistry.createRegistry(1099);
 			r.rebind("MainServer", s);
 			System.out.println("Server ready.");
+		}catch (ExportException re){
+			try {
+				remake();
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
 		}
