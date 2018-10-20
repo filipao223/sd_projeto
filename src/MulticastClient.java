@@ -2,13 +2,9 @@ import java.net.MulticastSocket;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.io.IOException;
-<<<<<<< HEAD
-import java.util.Scanner;
-=======
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
->>>>>>> 565125d... Updated udp_protocol, added Request codes, and changed MulticastClient
 
 /**
  * MulticastClient -> classe que recebe os callbacks do servidor
@@ -30,18 +26,16 @@ import java.util.concurrent.Executors;
 public class MulticastClient extends Thread {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
-<<<<<<< HEAD
-=======
     private static List<Integer> serverNumbers = new ArrayList<>(); //lista de numeros de servidores
->>>>>>> 565125d... Updated udp_protocol, added Request codes, and changed MulticastClient
 
     public static void main(String[] args) {
-        //MulticastClient client = new MulticastClient();
-        //client.start();
-        MulticastUser user = new MulticastUser();
+        MulticastClient client = new MulticastClient();
+        client.start();
+        MulticastUser user = new MulticastUser(serverNumbers);
         user.start();
     }
 
+    @SuppressWarnings("unchecked")
     public void run() {
         MulticastSocket socket = null;
         ExecutorService executor = Executors.newFixedThreadPool(5); //Pool de threads
@@ -52,19 +46,11 @@ public class MulticastClient extends Thread {
             while (true) {
                 byte[] buffer = new byte[2048];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-<<<<<<< HEAD
-                socket.receive(packet);
-
-                System.out.println("Received packet from " + packet.getAddress().getHostAddress() + ":" + packet.getPort() + " with message:");
-                String message = new String(packet.getData(), 0, packet.getLength());
-                System.out.println(message);
-=======
                 socket.receive(packet); //Recebe pacotes vindo dos servidores
                 System.out.println("Received packet");
 
                 //Cria uma task, e coloca-a na pool de threads
                 executor.submit(new DecodePacket(packet, serverNumbers));
->>>>>>> 565125d... Updated udp_protocol, added Request codes, and changed MulticastClient
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -77,17 +63,16 @@ public class MulticastClient extends Thread {
 class MulticastUser extends Thread {
     private String MULTICAST_ADDRESS = "224.3.2.1";
     private int PORT = 4321;
+    private List<Integer> serverNumbers;
 
-    public MulticastUser() {
+    public MulticastUser(List<Integer> list) {
         super("User " + (long) (Math.random() * 1000));
+        this.serverNumbers = list;
     }
 
     public void run() {
-<<<<<<< HEAD
-=======
         // TODO (optional) tornar as coisas mais óbvias ao utlizador
         Serializer s = new Serializer();
->>>>>>> 565125d... Updated udp_protocol, added Request codes, and changed MulticastClient
         MulticastSocket socket = null;
         System.out.println(this.getName() + " ready...");
         try {
@@ -106,10 +91,6 @@ class MulticastUser extends Thread {
             socket.send(packet); //Envia
 
             while (true) {
-<<<<<<< HEAD
-                String readKeyboard = keyboardScanner.nextLine();
-                byte[] buffer = readKeyboard.getBytes();
-=======
                 boolean alreadyGotFeatureCode = false;
                 Map<String, Object> data = new HashMap<>();
 
@@ -345,7 +326,6 @@ class MulticastUser extends Thread {
                             System.out.println("Bad string format");
                             continue;
                         }
->>>>>>> 565125d... Updated udp_protocol, added Request codes, and changed MulticastClient
 
                         //Decode input
                         String[] tokens = readKeyboard.split("\\_");
