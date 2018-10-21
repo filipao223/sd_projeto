@@ -24,7 +24,7 @@ import java.util.concurrent.Executors;
  * o pedido é colocado num HashMap, e enviado para o servidor, a resposta sendo recebida pela classe MulticastClient
  */
 public class MulticastClient extends Thread {
-    private String MULTICAST_ADDRESS = "224.3.2.1";
+    private String MULTICAST_ADDRESS = "226.0.0.1";
     private int PORT = 4321;
     private static List<Integer> serverNumbers = new ArrayList<>(); //lista de numeros de servidores
 
@@ -60,7 +60,7 @@ public class MulticastClient extends Thread {
 }
 
 class MulticastUser extends Thread {
-    private String MULTICAST_ADDRESS = "224.3.2.1";
+    private String MULTICAST_ADDRESS = "226.0.0.1";
     private int PORT = 4321;
     private List<Integer> serverNumbers;
 

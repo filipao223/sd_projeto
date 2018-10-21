@@ -11,7 +11,7 @@ import java.util.*;
  * Runnable that handles a single UDP datagram
  */
 public class RequestHandler implements Runnable {
-    private static String MULTICAST_ADDRESS = "224.3.2.1";
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 4321;
 
     private DatagramPacket clientPacket;

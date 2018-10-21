@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
 public class DBConnection extends Thread {
     private static Connection connection;
     private static List<Integer> serverNumbers;
-    private static String MULTICAST_ADDRESS = "224.3.2.1";
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
     private final int PORT = 7000;
     private Serializer serializer = new Serializer();
 
@@ -64,7 +64,7 @@ class Worker implements Runnable{
     private List<Integer> serverNumbers;
     private Connection connection;
     private int maxNumber;
-    private final static String MULTICAST_ADDRESS = "224.3.2.1";
+    private final static String MULTICAST_ADDRESS = "226.0.0.1";
     private final static int PORT = 7000;
 
     Worker(DatagramPacket client, List<Integer> serverNumbers, Connection connection, int maxNumber){

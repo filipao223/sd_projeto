@@ -16,7 +16,7 @@ import static java.lang.Thread.sleep;
  */
 public class MulticastServer extends Thread {
 
-    private static String MULTICAST_ADDRESS = "224.3.2.1";
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 4321;
     private static int PORT_DBCONNECTION = 7000;
     private static byte[] bufferReceive;
