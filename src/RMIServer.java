@@ -1,5 +1,7 @@
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.rmi.*;
 import java.rmi.registry.LocateRegistry;
@@ -7,20 +9,21 @@ import java.rmi.registry.Registry;
 import java.rmi.server.*;
 import java.util.*;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public ArrayList<Client> client = new ArrayList<>();
 	public Serializer serializer;
-
-	public int maxserver = 3;
+	private static List<Integer> serverNumbers = new ArrayList<>();
 
 	public RMIServer() throws RemoteException {
 		super();
 	}
 
-	public static void remake() throws RemoteException, InterruptedException {
+	public static void remake(RMIServer server) throws RemoteException, InterruptedException {
 		int vezes = 0;
 		while (true) {
 			Thread.sleep(1000);
@@ -34,34 +37,22 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 				System.out.println("Nenhum server");
 				vezes += 1;
 				if(vezes == 5){
-					RMIServer s = new RMIServer();
-					r = LocateRegistry.createRegistry(1099);
-					r.rebind("MainServer", s);
+					r.rebind("MainServer", server);
 					System.out.println("Server ready.");
 					vezes = 0;
 					break;
 				}
 			} catch (ConnectException e) {
-				System.out.println("Nenhum server");
+				System.out.println("MainServer");
 				vezes += 1;
 				if(vezes == 5){
-					RMIServer s = new RMIServer();
-					r = LocateRegistry.createRegistry(1099);
-					r.rebind("MainServer", s);
+					r.rebind("MainServer", server );
 					System.out.println("Server ready.");
 					vezes = 0;
 					break;
 				}
 			}
 		}
-	}
-
-
-	public byte[] serialize(Object obj) throws IOException {
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ObjectOutputStream os = new ObjectOutputStream(out);
-		os.writeObject(obj);
-		return out.toByteArray();
 	}
 
 	public void subscribe(String name,Client c) throws RemoteException {
@@ -70,54 +61,46 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	}
 
 
-	public void receive(Texto m) throws RemoteException {
+	public void receive(HashMap h) throws RemoteException {
 
-		String MULTICAST_ADDRESS = "224.3.2.1";
+		String MULTICAST_ADDRESS = "226.0.0.1";
 		int PORT = 4321;
+		Serializer s = new Serializer();
+		MulticastSocket socket = null;
 
-		HashMap<String, Object> hmap = new HashMap<String, Object>();
-
-		String[] partes = m.getCaso().split("_");
-
-		hmap.put(partes[0],partes[1]);
-		for(String s : m.getText()){
-			partes = s.split("_");
-			for(int i = 0;i<partes.length-1;i++){
-				hmap.put(partes[i],partes[i+1]);
-			}
-		}
-
-		hmap.put("server",Integer.toString(maxserver));
-
-		for(Client c:client){
-			c.print_on_client(hmap);
-		}
-
-		Set set = hmap.entrySet();
+		Set set = h.entrySet();
 		Iterator iterator = set.iterator();
 		while(iterator.hasNext()) {
-			Map.Entry mentry = (Map.Entry)iterator.next();
-			System.out.print("key is: "+ mentry.getKey() + " & Value is: ");
+			Map.Entry mentry = (Map.Entry) iterator.next();
+			System.out.print("key is: " + mentry.getKey() + " & Value is: ");
 			System.out.println(mentry.getValue());
 		}
 
-		MulticastSocket socket= null;
-
-		try{
-
+		try {
 			socket = new MulticastSocket();  // create socket without binding it (only for sending)
-			byte[] buffer = serialize(hmap);
+			Scanner keyboardScanner = new Scanner(System.in);
 
-			//System.out.println(buffer.toString());
+			//Pedido inicial, coloca a feature CHECK_SERVER_UP, a qual o servidor vai responder
+			//(ou nao) o seu numero
+			Map<String, Object> checkServer = new HashMap<>();
+			checkServer.put("feature", String.valueOf(Request.CHECK_SERVER_UP));
 
-			//InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-			//DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-			//socket.send(packet);
+			byte[] buffer = s.serialize(checkServer);
+
+			InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+			DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+			socket.send(packet); //Envia
+
+			buffer = s.serialize(h);
+
+			group = InetAddress.getByName(MULTICAST_ADDRESS);
+			packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+			socket.send(packet);
+
+
 
 		} catch (IOException e) {
 			e.printStackTrace();
-		} finally {
-			socket.close();
 		}
 
 	}
@@ -134,13 +117,15 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			Registry r = LocateRegistry.createRegistry(1099);
 			r.rebind("MainServer", s_main);
 			System.out.println("Server ready.");
-			s_backup.remake();
+			while(true){
+				s_backup.remake(s_backup);
+				s_main.remake(s_main);
+			}
 		}catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 }

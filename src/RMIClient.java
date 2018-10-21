@@ -25,245 +25,265 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
 
     public static void remake() throws RemoteException {
-        int vezes = 0;
-        while (vezes < 10) {
-                vezes += 1;
-                try {
-                    Thread.sleep(1000);
-                    Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer");
-                    RMIClient c = new RMIClient();
+        long time = System.currentTimeMillis();
+        while (System.currentTimeMillis() < time + 30000) {
+            try {
 
-                    String linha = null;
+                Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer");
 
-                    do{
+                RMIClient c = new RMIClient();
 
-                        System.out.println("Escolha a opçao");
-                        Scanner keyboard = new Scanner(System.in);
-                        int code = keyboard.nextInt();
-                        ArrayList<String> A = new ArrayList<>();
-                        String insere = null;
-                        String s = null;
-                        String[] partes = null;
-                        Texto t = null;
+                Scanner keyboardScanner = new Scanner(System.in);
 
-                        switch(code){
-                            case Request.LOGIN:
-                                System.out.println("Faça o Login");
+                while(true) {
 
-                                System.out.println("Insira o nome");
+                    boolean alreadyGotFeatureCode = false;
+                    HashMap<String, Object> data = new HashMap<>();
 
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                name = linha;
-                                s = "username_";
-                                insere = s.concat(linha);
+                    String readKeyboard = "";
 
-                                A.add(insere);
+                    if (!alreadyGotFeatureCode) {
+                        //Ainda não, pergunta então
+                        System.out.println("Feature?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                    }
+                    data.put("feature", readKeyboard); //cabecaçlho do pacote udp, a feature requerida
+//================================================LOGIN=====================================================================================================
+                    if (readKeyboard.matches("1") || readKeyboard.matches("29")) {
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
 
-                                System.out.println("Insira a password");
+                        System.out.println("Password?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("password", readKeyboard);
 
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "password_";
-                                insere = s.concat(linha);
+                    }
+//================================================LOGOUT===================================================================================================
+                    else if (readKeyboard.matches("14")) {
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
+                    }
+//==============================================TORNAR ALGUEM EDITOR=======================================================================================
+                    else if (readKeyboard.matches("6")) {
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("editor", readKeyboard);
 
-                                A.add(insere);
+                        System.out.println("New editor?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("newEditor", readKeyboard);
+                    }
+//=====================================EDITAR (ADICIONAR, ALTERAR E REMOVER)================================================================================
+                    else if (readKeyboard.matches("2")) {
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
+                        System.out.println("Add, remove or edit?: ");
+                        readKeyboard = keyboardScanner.nextLine();
 
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
+                        if (readKeyboard.matches("add")) { //PRETENDE ADICIONAR
+                            String action = "";
+                            System.out.println("Album ,music or artist?: "); //quer editar um arista, um album ou uma musica?
+                            readKeyboard = keyboardScanner.nextLine();
+                            if (readKeyboard.matches("album")) {
+                                action = action.concat(String.valueOf(Request.ADD_ALBUM) + "_");
+                            } else if (readKeyboard.matches("artist")) {
+                                action = action.concat(String.valueOf(Request.ADD_ARTIST) + "_");
+                            } else if (readKeyboard.matches("music")) {
+                                action = action.concat(String.valueOf(Request.ADD_MUSIC) + "_");
+                            } else {
+                                System.out.println("Bad token");
+                                continue;
+                            }
+                            System.out.println("Name?: ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            action = action.concat(readKeyboard);
+                            data.put("action", action);
+                        } else if (readKeyboard.matches("edit")) { //PRETENDE EDITAR
+                            System.out.println("Which data type to edit?(music, album or artist): "); //Editar o quê?
+                            readKeyboard = keyboardScanner.nextLine();
+                            String action = "";
 
-                                t = new Texto(A,insere);
+                            //Birth date needs to be checked for proper format
+                            boolean isBirth = false;
 
-                                h.subscribe(name,(Client) c);
-
-                                h.receive(t);
-
-                                break;
-
-                            case Request.MANAGE:
-                                if(name != null){
-                                    s = "username_";
-                                    insere = s.concat(name);
-                                    A.add(insere);
+                            if (readKeyboard.matches("music")) {
+                                action = action.concat(String.valueOf(Request.EDIT_MUSIC) + "_");
+                                System.out.println("Which field to edit?(name,year,album,artist): ");
+                                readKeyboard = keyboardScanner.nextLine();
+                                if (readKeyboard.matches("name")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                                } else if (readKeyboard.matches("year")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_YEAR) + "_");
+                                } else if (readKeyboard.matches("album")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_FIELD_ALBUMS) + "_");
+                                } else if (readKeyboard.matches("artist")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST) + "_");
+                                } else {
+                                    System.out.println("No attribute with that name");
+                                    continue;
                                 }
-                                else{
-                                    System.out.println("Faça Login");
-                                    break;
+                            } else if (readKeyboard.matches("album")) {
+                                action = action.concat(String.valueOf(Request.EDIT_ALBUM) + "_");
+                                System.out.println("Which field to edit?(name,year,artist,genre,description): ");
+                                readKeyboard = keyboardScanner.nextLine();
+                                if (readKeyboard.matches("name")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                                } else if (readKeyboard.matches("year")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_YEAR) + "_");
+                                } else if (readKeyboard.matches("artist")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST) + "_");
+                                } else if (readKeyboard.matches("description")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION) + "_");
+                                } else if (readKeyboard.matches("genre")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_GENRE) + "_");
+                                } else {
+                                    System.out.println("No attribute with that name");
+                                    continue;
                                 }
-
-                                System.out.println("Insira o que quer alterar,o que vai ser alterado e como quer alterar, separado por _");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "action_";
-                                insere = s.concat(linha);
-
-                                A.add(insere);
-                                s = "feature_";
-
-                                insere = s.concat(String.valueOf(code));
-
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-
-                                break;
-
-                            case Request.SEARCH:
-                                System.out.println("Insira o que quer pesquisar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-
-                                s = "type_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                System.out.println("Insira o nome do que quer pesquisar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-
-                                s = "name_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-                                break;
-
-                            case Request.DETAILS:
-                                System.out.println("Insira o nome do que quer pesquisar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-
-                                s = "name_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-                                break;
-
-                            case Request.CRITIQUE:
-                                System.out.println("Insira quem quer criticar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "user_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                System.out.println("Insira o album que quer criticar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "album_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                System.out.println("Insira a critica");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "critique_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-
-                                break;
-
-                            case Request.MAKE_EDITOR:
-                                if(name != null){
-                                    s = "editor_";
-                                    insere = s.concat(name);
-                                    A.add(insere);
+                            } else if (readKeyboard.matches("artist")) {
+                                action = action.concat(String.valueOf(Request.EDIT_ARTIST) + "_");
+                                System.out.println("Which field to edit?(name,birth,description): ");
+                                readKeyboard = keyboardScanner.nextLine();
+                                if (readKeyboard.matches("name")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                                } else if (readKeyboard.matches("birth")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_BIRTH) + "_");
+                                    isBirth = true;
+                                } else if (readKeyboard.matches("description")) {
+                                    action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION) + "_");
+                                } else {
+                                    System.out.println("No attribute with that name");
+                                    continue;
                                 }
-                                else{
-                                    System.out.println("Faça Login");
-                                    break;
+                            } else {
+                                System.out.println("No type found");
+                                continue;
+                            }
+
+                            System.out.println("Which item is to be edited?: ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            action = action.concat(readKeyboard + "_");
+                            System.out.println("New value?: ");
+                            readKeyboard = keyboardScanner.nextLine();
+
+                            //Birth date needs to be checked for proper format
+                            if (isBirth) {
+                                if (!readKeyboard.matches("^\\s*(3[01]|[12][0-9]|0?[1-9])-(1[012]|0?[1-9])-((?:19|20)\\d{2})\\s*$")) {
+                                    System.out.println("Bad date format, should be d-m-yyyy");
+                                    continue;
                                 }
+                            }
 
-                                System.out.println("Insira quem quer tornar editor");
-                                s = "user_";
-                                insere = s.concat(name);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-                                break;
-
-                            case Request.NOTE_EDITOR:
-
-                            case Request.NOTE_DELIVER:
-
-                            case Request.UPLOAD:
-
-                                System.out.println("Insira quem quer mandar");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "user_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                System.out.println("Insira a musica que quer");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "music_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-
-                            case Request.SHARE:
-
-                                System.out.println("Insira para quem quer mandar,separado por _");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "user_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                System.out.println("Insira a musica que quer");
-                                keyboard = new Scanner(System.in);
-                                linha = keyboard.nextLine();
-                                s = "music_";
-                                insere = s.concat(linha);
-                                A.add(insere);
-
-                                s = "feature_";
-                                insere = s.concat(String.valueOf(code));
-                                t = new Texto(A,insere);
-
-                                h.receive(t);
-                                break;
-
-                            case Request.DOWNLOAD:
-                                //Download something
-                                break;
+                            action = action.concat(readKeyboard);
+                            System.out.println("Produced action: " + action);
+                            data.put("action", action);
+                        } else if (readKeyboard.matches("remove")) { //PRETENDE REMOVER
+                            String action = "";
+                            System.out.println("Album, music or artist?: "); //Remover o quê?
+                            readKeyboard = keyboardScanner.nextLine();
+                            if (readKeyboard.matches("album")) {
+                                action = action.concat(String.valueOf(Request.REMOVE_ALBUM) + "_");
+                            } else if (readKeyboard.matches("artist")) {
+                                action = action.concat(String.valueOf(Request.REMOVE_ARTIST) + "_");
+                            } else if (readKeyboard.matches("music")) {
+                                action = action.concat(String.valueOf(Request.REMOVE_MUSIC) + "_");
+                            } else {
+                                System.out.println("Bad token");
+                                continue;
+                            }
+                            System.out.println("Name?: "); //Nome do que quer remover
+                            readKeyboard = keyboardScanner.nextLine();
+                            action = action.concat(readKeyboard);
+                            data.put("action", action);
                         }
-                    }while(!linha.equals("END"));
+
+                    }
+//===================================================PESQUISAR===========================================================================================
+                    else if (readKeyboard.matches("3")) { //
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
+
+                        String action = "";
+                        // TODO test search feature
+
+                        System.out.println("Search artist, music or album?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        if (readKeyboard.matches("artist")) {
+                            action = action.concat(String.valueOf(Request.SEARCH_ARTIST) + "_");
+                            System.out.println("Artist name?: ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + readKeyboard);
+                        }
+                        // TODO (optional) mudar a forma de construir a ação (não obrigar o user a escrever name_"nome"_genre_"jazz")
+                        else if (readKeyboard.matches("album")) {
+                            action = action.concat(String.valueOf(Request.SEARCH_ALBUM) + "_");
+                            System.out.println("Parameters to search?(at least one of these- name, artist, genre)" +
+                                    "(format: name_\"value\"_genre_\"jazz\", for example): ");
+                            readKeyboard = keyboardScanner.nextLine();
+
+                            //Check format
+                            if (!readKeyboard.matches("([a-zA-Z]+(?:_[a-zA-Z]+)*)")) {
+                                System.out.println("Bad string format");
+                                continue;
+                            }
+
+                            //Decode input
+                            String[] tokens = readKeyboard.split("\\_");
+                            for (int i = 0; i < tokens.length; i += 2) {
+                                if (tokens[i].matches("name")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + tokens[i + 1]);
+                                } else if (tokens[i].matches("artist")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_ARTIST) + "_" + tokens[i + 1]);
+                                } else if (tokens[i].matches("genre")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_GENRE) + "_" + tokens[i + 1]);
+                                }
+                            }
+                        } else if (readKeyboard.matches("music")) {
+                            action = action.concat(String.valueOf(Request.SEARCH_MUSIC) + "_");
+                            System.out.println("Parameters to search?(at least one of these- name, artist, album)" +
+                                    "(format: name_\"value\"_album_\"album name\", for example): ");
+                            readKeyboard = keyboardScanner.nextLine();
+
+                            //Check format
+                            // TODO arranjar esta expressao regular para so aceitar numeros em cada valor par (1_2_3_4)
+                            if (!readKeyboard.matches("([a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*)")) {
+                                System.out.println("Bad string format");
+                                continue;
+                            }
+
+                            //Decode input
+                            String[] tokens = readKeyboard.split("_");
+                            for (int i = 0; i < tokens.length; i += 2) {
+                                if (tokens[i].matches("name")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + tokens[i + 1]);
+                                } else if (tokens[i].matches("artist")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_ARTIST) + "_" + tokens[i + 1]);
+                                } else if (tokens[i].matches("album")) {
+                                    action = action.concat(String.valueOf(Request.SEARCH_BY_ALBUM) + "_" + tokens[i + 1]);
+                                }
+                                if ((i + 2) < tokens.length) action = action.concat("_");
+                            }
+                        } else {
+                            System.out.println("Bad token");
+                            continue;
+                        }
+
+                        data.put("action", action);
+                    }
+                    h.receive(data);
+                }
                 } catch (ConnectException e) {
                     System.out.println("A procura de conecao");
                 } catch (NotBoundException e) {
                     System.out.println("A procura de conecao");
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
                 }
-            if(vezes == 10){
+            if(System.currentTimeMillis() >= time + 30000){
                     System.out.println("Não existe coneção");
+                    break;
                 }
         }
     }
@@ -276,233 +296,251 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
             RMIClient c = new RMIClient();
 
-            System.out.println(c);
+            Scanner keyboardScanner = new Scanner(System.in);
 
-            String linha = null;
+            while(true) {
 
-            do{
+                boolean alreadyGotFeatureCode = false;
+                HashMap<String, Object> data = new HashMap<>();
 
-                System.out.println("Escolha a opçao");
-                Scanner keyboard = new Scanner(System.in);
-                int code = keyboard.nextInt();
-                ArrayList<String> A = new ArrayList<>();
-                String insere = null;
-                String s = null;
-                String[] partes = null;
-                Texto t = null;
+                String readKeyboard = "";
 
-                switch(code){
-                    case Request.LOGIN:
-                        System.out.println("Faça o Login");
-
-                        System.out.println("Insira o nome");
-
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        name = linha;
-                        s = "username_";
-                        insere = s.concat(linha);
-
-                        A.add(insere);
-
-                        System.out.println("Insira a password");
-
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "password_";
-                        insere = s.concat(linha);
-
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-
-                        t = new Texto(A,insere);
-
-                        h.subscribe(name,(Client) c);
-
-                        h.receive(t);
-
-                        break;
-
-                    case Request.MANAGE:
-                        if(name != null){
-                            s = "username_";
-                            insere = s.concat(name);
-                            A.add(insere);
-                        }
-                        else{
-                            System.out.println("Faça Login");
-                            break;
-                        }
-
-                        System.out.println("Insira o que quer alterar,o que vai ser alterado e como quer alterar, separado por _");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "action_";
-                        insere = s.concat(linha);
-
-                        A.add(insere);
-                        s = "feature_";
-
-                        insere = s.concat(String.valueOf(code));
-
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-
-                        break;
-
-                    case Request.SEARCH:
-                        System.out.println("Insira o que quer pesquisar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-
-                        s = "type_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        System.out.println("Insira o nome do que quer pesquisar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-
-                        s = "name_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-                        break;
-
-                    case Request.DETAILS:
-                        System.out.println("Insira o nome do que quer pesquisar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-
-                        s = "name_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-                        break;
-
-                    case Request.CRITIQUE:
-                        System.out.println("Insira quem quer criticar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "user_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        System.out.println("Insira o album que quer criticar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "album_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        System.out.println("Insira a critica");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "critique_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-
-                        break;
-
-                    case Request.MAKE_EDITOR:
-                        if(name != null){
-                            s = "editor_";
-                            insere = s.concat(name);
-                            A.add(insere);
-                        }
-                        else{
-                            System.out.println("Faça Login");
-                            break;
-                        }
-
-                        System.out.println("Insira quem quer tornar editor");
-                        s = "user_";
-                        insere = s.concat(name);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-                        break;
-
-                    case Request.NOTE_EDITOR:
-
-                    case Request.NOTE_DELIVER:
-
-                    case Request.UPLOAD:
-
-                        System.out.println("Insira quem quer mandar");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "user_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        System.out.println("Insira a musica que quer");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "music_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-
-                    case Request.SHARE:
-
-                        System.out.println("Insira para quem quer mandar,separado por _");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "user_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        System.out.println("Insira a musica que quer");
-                        keyboard = new Scanner(System.in);
-                        linha = keyboard.nextLine();
-                        s = "music_";
-                        insere = s.concat(linha);
-                        A.add(insere);
-
-                        s = "feature_";
-                        insere = s.concat(String.valueOf(code));
-                        t = new Texto(A,insere);
-
-                        h.receive(t);
-                        break;
-
-                    case Request.DOWNLOAD:
-                        //Download something
-                        break;
+                if (!alreadyGotFeatureCode) {
+                    //Ainda não, pergunta então
+                    System.out.println("Feature?: ");
+                    readKeyboard = keyboardScanner.nextLine();
                 }
-            }while(!linha.equals("END"));
+                data.put("feature", readKeyboard); //cabecaçlho do pacote udp, a feature requerida
+//================================================LOGIN=====================================================================================================
+                if (readKeyboard.matches("1") || readKeyboard.matches("29")) {
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+
+                    System.out.println("Password?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("password", readKeyboard);
+
+                }
+//================================================LOGOUT===================================================================================================
+                else if (readKeyboard.matches("14")) {
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+                }
+//==============================================TORNAR ALGUEM EDITOR=======================================================================================
+                else if (readKeyboard.matches("6")) {
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("editor", readKeyboard);
+
+                    System.out.println("New editor?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("newEditor", readKeyboard);
+                }
+//=====================================EDITAR (ADICIONAR, ALTERAR E REMOVER)================================================================================
+                else if (readKeyboard.matches("2")) {
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+                    System.out.println("Add, remove or edit?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+
+                    if (readKeyboard.matches("add")) { //PRETENDE ADICIONAR
+                        String action = "";
+                        System.out.println("Album ,music or artist?: "); //quer editar um arista, um album ou uma musica?
+                        readKeyboard = keyboardScanner.nextLine();
+                        if (readKeyboard.matches("album")) {
+                            action = action.concat(String.valueOf(Request.ADD_ALBUM) + "_");
+                        } else if (readKeyboard.matches("artist")) {
+                            action = action.concat(String.valueOf(Request.ADD_ARTIST) + "_");
+                        } else if (readKeyboard.matches("music")) {
+                            action = action.concat(String.valueOf(Request.ADD_MUSIC) + "_");
+                        } else {
+                            System.out.println("Bad token");
+                            continue;
+                        }
+                        System.out.println("Name?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        action = action.concat(readKeyboard);
+                        data.put("action", action);
+                    } else if (readKeyboard.matches("edit")) { //PRETENDE EDITAR
+                        System.out.println("Which data type to edit?(music, album or artist): "); //Editar o quê?
+                        readKeyboard = keyboardScanner.nextLine();
+                        String action = "";
+
+                        //Birth date needs to be checked for proper format
+                        boolean isBirth = false;
+
+                        if (readKeyboard.matches("music")) {
+                            action = action.concat(String.valueOf(Request.EDIT_MUSIC) + "_");
+                            System.out.println("Which field to edit?(name,year,album,artist): ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            if (readKeyboard.matches("name")) {
+                                action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                            } else if (readKeyboard.matches("year")) {
+                                action = action.concat(String.valueOf(Request.EDIT_YEAR) + "_");
+                            } else if (readKeyboard.matches("album")) {
+                                action = action.concat(String.valueOf(Request.EDIT_FIELD_ALBUMS) + "_");
+                            } else if (readKeyboard.matches("artist")) {
+                                action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST) + "_");
+                            } else {
+                                System.out.println("No attribute with that name");
+                                continue;
+                            }
+                        } else if (readKeyboard.matches("album")) {
+                            action = action.concat(String.valueOf(Request.EDIT_ALBUM) + "_");
+                            System.out.println("Which field to edit?(name,year,artist,genre,description): ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            if (readKeyboard.matches("name")) {
+                                action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                            } else if (readKeyboard.matches("year")) {
+                                action = action.concat(String.valueOf(Request.EDIT_YEAR) + "_");
+                            } else if (readKeyboard.matches("artist")) {
+                                action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST) + "_");
+                            } else if (readKeyboard.matches("description")) {
+                                action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION) + "_");
+                            } else if (readKeyboard.matches("genre")) {
+                                action = action.concat(String.valueOf(Request.EDIT_GENRE) + "_");
+                            } else {
+                                System.out.println("No attribute with that name");
+                                continue;
+                            }
+                        } else if (readKeyboard.matches("artist")) {
+                            action = action.concat(String.valueOf(Request.EDIT_ARTIST) + "_");
+                            System.out.println("Which field to edit?(name,birth,description): ");
+                            readKeyboard = keyboardScanner.nextLine();
+                            if (readKeyboard.matches("name")) {
+                                action = action.concat(String.valueOf(Request.EDIT_NAME) + "_");
+                            } else if (readKeyboard.matches("birth")) {
+                                action = action.concat(String.valueOf(Request.EDIT_BIRTH) + "_");
+                                isBirth = true;
+                            } else if (readKeyboard.matches("description")) {
+                                action = action.concat(String.valueOf(Request.EDIT_DESCRIPTION) + "_");
+                            } else {
+                                System.out.println("No attribute with that name");
+                                continue;
+                            }
+                        } else {
+                            System.out.println("No type found");
+                            continue;
+                        }
+
+                        System.out.println("Which item is to be edited?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        action = action.concat(readKeyboard + "_");
+                        System.out.println("New value?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+
+                        //Birth date needs to be checked for proper format
+                        if (isBirth) {
+                            if (!readKeyboard.matches("^\\s*(3[01]|[12][0-9]|0?[1-9])-(1[012]|0?[1-9])-((?:19|20)\\d{2})\\s*$")) {
+                                System.out.println("Bad date format, should be d-m-yyyy");
+                                continue;
+                            }
+                        }
+
+                        action = action.concat(readKeyboard);
+                        System.out.println("Produced action: " + action);
+                        data.put("action", action);
+                    } else if (readKeyboard.matches("remove")) { //PRETENDE REMOVER
+                        String action = "";
+                        System.out.println("Album, music or artist?: "); //Remover o quê?
+                        readKeyboard = keyboardScanner.nextLine();
+                        if (readKeyboard.matches("album")) {
+                            action = action.concat(String.valueOf(Request.REMOVE_ALBUM) + "_");
+                        } else if (readKeyboard.matches("artist")) {
+                            action = action.concat(String.valueOf(Request.REMOVE_ARTIST) + "_");
+                        } else if (readKeyboard.matches("music")) {
+                            action = action.concat(String.valueOf(Request.REMOVE_MUSIC) + "_");
+                        } else {
+                            System.out.println("Bad token");
+                            continue;
+                        }
+                        System.out.println("Name?: "); //Nome do que quer remover
+                        readKeyboard = keyboardScanner.nextLine();
+                        action = action.concat(readKeyboard);
+                        data.put("action", action);
+                    }
+
+                }
+//===================================================PESQUISAR===========================================================================================
+                else if (readKeyboard.matches("3")) { //
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+
+                    String action = "";
+                    // TODO test search feature
+
+                    System.out.println("Search artist, music or album?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    if (readKeyboard.matches("artist")) {
+                        action = action.concat(String.valueOf(Request.SEARCH_ARTIST) + "_");
+                        System.out.println("Artist name?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + readKeyboard);
+                    }
+                    // TODO (optional) mudar a forma de construir a ação (não obrigar o user a escrever name_"nome"_genre_"jazz")
+                    else if (readKeyboard.matches("album")) {
+                        action = action.concat(String.valueOf(Request.SEARCH_ALBUM) + "_");
+                        System.out.println("Parameters to search?(at least one of these- name, artist, genre)" +
+                                "(format: name_\"value\"_genre_\"jazz\", for example): ");
+                        readKeyboard = keyboardScanner.nextLine();
+
+                        //Check format
+                        if (!readKeyboard.matches("([a-zA-Z]+(?:_[a-zA-Z]+)*)")) {
+                            System.out.println("Bad string format");
+                            continue;
+                        }
+
+                        //Decode input
+                        String[] tokens = readKeyboard.split("\\_");
+                        for (int i = 0; i < tokens.length; i += 2) {
+                            if (tokens[i].matches("name")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + tokens[i + 1]);
+                            } else if (tokens[i].matches("artist")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_ARTIST) + "_" + tokens[i + 1]);
+                            } else if (tokens[i].matches("genre")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_GENRE) + "_" + tokens[i + 1]);
+                            }
+                        }
+                    } else if (readKeyboard.matches("music")) {
+                        action = action.concat(String.valueOf(Request.SEARCH_MUSIC) + "_");
+                        System.out.println("Parameters to search?(at least one of these- name, artist, album)" +
+                                "(format: name_\"value\"_album_\"album name\", for example): ");
+                        readKeyboard = keyboardScanner.nextLine();
+
+                        //Check format
+                        // TODO arranjar esta expressao regular para so aceitar numeros em cada valor par (1_2_3_4)
+                        if (!readKeyboard.matches("([a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)*)")) {
+                            System.out.println("Bad string format");
+                            continue;
+                        }
+
+                        //Decode input
+                        String[] tokens = readKeyboard.split("_");
+                        for (int i = 0; i < tokens.length; i += 2) {
+                            if (tokens[i].matches("name")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_NAME) + "_" + tokens[i + 1]);
+                            } else if (tokens[i].matches("artist")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_ARTIST) + "_" + tokens[i + 1]);
+                            } else if (tokens[i].matches("album")) {
+                                action = action.concat(String.valueOf(Request.SEARCH_BY_ALBUM) + "_" + tokens[i + 1]);
+                            }
+                            if ((i + 2) < tokens.length) action = action.concat("_");
+                        }
+                    } else {
+                        System.out.println("Bad token");
+                        continue;
+                    }
+
+                    data.put("action", action);
+                }
+                h.receive(data);
+            }
         } catch (ConnectException e) {
             try {
-                int vezes = 0;
                 remake();
             } catch (RemoteException e1) {
                 e1.printStackTrace();
