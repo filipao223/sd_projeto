@@ -60,7 +60,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public void subscribe(String name,Client c) throws RemoteException {
 		client.add(c);
-		System.out.println(c);
+		System.out.println("Subscribe " + name);
 	}
 
 
@@ -97,7 +97,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			r.rebind("MainServer", s_main);
 			System.out.println("Server ready.");
 
-			ReceivePacket receivePacket = new ReceivePacket(serverNumbers);
+			ReceivePacket receivePacket = new ReceivePacket(serverNumbers,s_main.client);
 			receivePacket.start();
 
             try{
@@ -141,10 +141,12 @@ class ReceivePacket extends Thread{
     private static int PORT = 4321;
     private static Serializer serializer = new Serializer();
     private static List<Integer> serverNumbers;
+    private static ArrayList<Client> clients;
 
-    ReceivePacket(List<Integer> serverNumbers){
+    ReceivePacket(List<Integer> serverNumbers,ArrayList<Client> clients){
         super("RMIServer");
         ReceivePacket.serverNumbers = serverNumbers;
+        this.clients = clients;
     }
 
     @Override
@@ -161,7 +163,7 @@ class ReceivePacket extends Thread{
                 socket.receive(packetIn);
 
                 //Hand off to worker
-                executor.submit(new Worker(serverNumbers, packetIn));
+                executor.submit(new Worker(serverNumbers, packetIn,clients));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -171,10 +173,12 @@ class ReceivePacket extends Thread{
     class Worker implements Runnable{
         private List<Integer> serverNumbers;
         private DatagramPacket packetIn;
+        private ArrayList<Client> clients;
 
-        Worker(List<Integer> serverNumbers, DatagramPacket packetIn){
+        Worker(List<Integer> serverNumbers, DatagramPacket packetIn, ArrayList<Client> clients){
             this.serverNumbers = serverNumbers;
             this.packetIn = packetIn;
+            this.clients = clients;
         }
 
         @Override
@@ -182,42 +186,15 @@ class ReceivePacket extends Thread{
 			try{
 				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
 
-//============================================NNEW=DO TIPO CALLBACK=============================================================
-				if (((String)data.get("feature")).matches("13")){
-					// TODO mudar a maneira de verificar se esta a receber resultados de pesquisa
-					System.out.println("------------RMI SERVER Callback is: ");
-					System.out.println("Feature: " + data.get("feature"));
-					System.out.println("Username: " + data.get("username"));
-					System.out.println("Resposta: " + data.get("answer"));
-					if (((String)data.get("answer")).matches("Found results")){
-						String[] results = ((String)data.get("optional")).split("_");
-						for (String s:results){
-							System.out.println(s);
-						}
+				for(Client c : clients){
+					if( c.getName().matches((String) data.get("username"))){
+						c.print_on_client(data);
 					}
-					System.out.println("Opcional: " + data.get("optional"));
-					System.out.println("-----------Done");
-				}
-//=============================================NOTIFICAÇÂO NOVO EDITOR=============================================================
-				else if (((String)data.get("feature")).matches("7")){
-					System.out.println("-----------New note: ");
-					// TODO (optional) Mudar "user1" was made editor para "you" were made editor
-					System.out.println(data.get("username") + " was made editor");
-				}
-//=============================================ENTREGA VARIAS NOTIFICAÇOES=============================================================
-				//Quando o user volta a ficar online, leva com as notificaçoes todas
-				else if (((String)data.get("feature")).matches("9")){
-					System.out.println("-----------New notes for " + data.get("username") + ": ");
-					String notes = (String) data.get("notes");
-					for (String note:notes.split("\\|")){
-						System.out.println(note);
-					}
-					System.out.println("-----------Done");
 				}
 //=============================================RESPOSTAS INTERNAS=============================================================
 				//O utilizador não recebe estas mensagens
 				//Novo servidor ligado
-				else if(((String)data.get("feature")).matches("30")){
+				if(((String)data.get("feature")).matches("30")){
 					System.out.println("-----------New server (" + data.get("new_server") + ")------------");
 					serverNumbers.add((int)data.get("new_server")); //Adiciona o numero do servidor à lista da classe
 				}

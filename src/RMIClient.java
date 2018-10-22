@@ -12,15 +12,53 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         super();
     }
 
-    public void print_on_client(HashMap h) throws RemoteException {
+    public void print_on_client(Map<String, Object> data) throws RemoteException {
 
-        Set set = h.entrySet();
+        /*Set set = h.entrySet();
 		Iterator iterator = set.iterator();
 		while(iterator.hasNext()) {
             Map.Entry mentry = (Map.Entry) iterator.next();
             System.out.print("key is: " + mentry.getKey() + " & Value is: ");
             System.out.println(mentry.getValue());
+        }*/
+
+
+//============================================NNEW=DO TIPO CALLBACK=============================================================
+        if (((String)data.get("feature")).matches("13")){
+            // TODO mudar a maneira de verificar se esta a receber resultados de pesquisa
+            System.out.println("------------RMI SERVER Callback is: ");
+            System.out.println("Feature: " + data.get("feature"));
+            System.out.println("Username: " + data.get("username"));
+            System.out.println("Resposta: " + data.get("answer"));
+            if (((String)data.get("answer")).matches("Found results")){
+                String[] results = ((String)data.get("optional")).split("_");
+                for (String s:results){
+                    System.out.println(s);
+                }
+            }
+            System.out.println("Opcional: " + data.get("optional"));
+            System.out.println("-----------Done");
         }
+//=============================================NOTIFICAÇÂO NOVO EDITOR=============================================================
+        else if (((String)data.get("feature")).matches("7")){
+            System.out.println("-----------New note: ");
+            // TODO (optional) Mudar "user1" was made editor para "you" were made editor
+            System.out.println(data.get("username") + " was made editor");
+        }
+//=============================================ENTREGA VARIAS NOTIFICAÇOES=============================================================
+        //Quando o user volta a ficar online, leva com as notificaçoes todas
+        else if (((String)data.get("feature")).matches("9")){
+            System.out.println("-----------New notes for " + data.get("username") + ": ");
+            String notes = (String) data.get("notes");
+            for (String note:notes.split("\\|")){
+                System.out.println(note);
+            }
+            System.out.println("-----------Done");
+        }
+    }
+
+    public String getName() throws RemoteException{
+        return name;
     }
 
 
@@ -53,6 +91,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                         System.out.println("Username?: ");
                         readKeyboard = keyboardScanner.nextLine();
                         data.put("username", readKeyboard);
+
+                        name = readKeyboard;
+                        h.subscribe(name,(Client) c);
 
                         System.out.println("Password?: ");
                         readKeyboard = keyboardScanner.nextLine();
@@ -316,6 +357,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                     System.out.println("Username?: ");
                     readKeyboard = keyboardScanner.nextLine();
                     data.put("username", readKeyboard);
+
+                    name = readKeyboard;
+                    h.subscribe(name,(Client) c);
 
                     System.out.println("Password?: ");
                     readKeyboard = keyboardScanner.nextLine();
