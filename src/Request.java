@@ -54,4 +54,18 @@ public class Request {
     protected static final int REQUEST_NUMBER    = 43;
     protected static final int ASSIGN_NUMBER     = 44;
     protected static final int CHECK_SERVER_UP   = 45;
+    protected static final int DB_ACCESS         = 46;
+    protected static final int DB_ANSWER         = 47;
+    protected static final int CHECK_LOGIN_STATE = 48;
+    protected static final int NAME_EXISTS       = 49;
+    protected static final int UPDATE_LOGIN_STATE= 50;
+    protected static final int GET_NOTES         = 51;
+    protected static final int CLEAR_NOTES       = 52;
+    protected static final int CHECK_USER_EXISTS = 53;
+    protected static final int REGISTER_USER     = 54;
+    protected static final int TIMEOUT           = 55;
+    protected static final int CHECK_EDITOR_STATE= 56;
+    protected static final int ATTRIBUTE_EDIT    = 57;
+    protected static final int ADD_ITEM          = 58;
+    protected static final int REMOVE_ITEM       = 59;
 }

@@ -1,4 +1,8 @@
 
+
+import com.sun.org.apache.regexp.internal.RE;
+import com.sun.org.apache.xpath.internal.operations.Mult;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -13,9 +17,11 @@ import java.util.*;
 public class RequestHandler implements Runnable {
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 4321;
+    private static int PORT_DBCONNECTION = 7000;
+    private static int PORT_DB_ANSWER = 7001;
 
     private DatagramPacket clientPacket;
-    private static Map<String, Object> data = null;
+    private Map<String, Object> data = null;
 
     private static Serializer s = new Serializer();
 
@@ -118,6 +124,7 @@ public class RequestHandler implements Runnable {
                 // TODO Upload de ficheiro para associar a uma música existente
                 // TODO Partilhar um ficheiro musical e permitir o respetivo download
                 switch(code){
+            //-------------------------------------------------------------------------------
                     case Request.REGISTER:
                         try{
                             String user = (String) data.get("username");
@@ -126,7 +133,6 @@ public class RequestHandler implements Runnable {
                             int rc = registerHandler(user, pass);
 
                             if (rc==NO_USER_FOUND || rc==-1) sendCallback(user, "User already exists", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else sendCallback(user, "User registered", null);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -135,6 +141,7 @@ public class RequestHandler implements Runnable {
             //----------------------------------------------------------------------------------
                     case Request.LOGIN:
                     case Request.LOGOUT:
+                        // FIXME When logging in, server returns notes, even if it is null
                         try{
                             System.out.println("User wants to login/logout");
                             String user = (String)data.get("username");
@@ -146,7 +153,6 @@ public class RequestHandler implements Runnable {
                             if (code == Request.LOGIN){
                                 if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
                                 else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                                 else if (rc==-1) sendCallback(user, "Wrong user/password", null);
                                 else{
                                     sendCallback(user, "User logged in", null);
@@ -164,11 +170,10 @@ public class RequestHandler implements Runnable {
                             }
                             else{
                                 if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                                 else sendCallback(user, "User logged out", null);
                             }
 
-                        } catch ( IOException e) {
+                        } catch ( Exception e) {
                             e.printStackTrace();
                         }
                         break;
@@ -181,20 +186,19 @@ public class RequestHandler implements Runnable {
                             newEditor = (String) data.get("newEditor");
 
                             int rc = checkLoginState(editor);
+                            System.out.println("Passed loginstate");
                             if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                             else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
                             else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null);
                             else{
                                 //Check if is editor
                                 rc = checkIfEditor(editor);
                                 if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null);
-                                else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
                                 else{
                                     //Make editor
                                     rc = makeEditorHandler(editor, newEditor);
                                     if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
-                                    else if (rc==DB_EXCEPTION) sendCallback(editor, "Database error", null);
+                                    else if(rc==-1) sendCallback(editor, "Error making new editor", null);
                                     else{
                                         sendCallback(editor, "Made new editor", null);
                                         sendSingleNotification(newEditor, editor, null, Request.NOTE_EDITOR);
@@ -208,13 +212,13 @@ public class RequestHandler implements Runnable {
                         break;
             //----------------------------------------------------------------------------------
                     case Request.MANAGE:
+                        // FIXME Wrong return code when removing successfully
                         try{
                             String user = (String) data.get("username");
                             String action = (String) data.get("action");
 
                             int rc = checkLoginState(user);
                             if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
                             else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
                             else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
                             else{
@@ -225,8 +229,7 @@ public class RequestHandler implements Runnable {
                                 else{
                                     //Make the edit
                                     rc = managerHandler(user, action);
-                                    if (rc == DB_EXCEPTION) sendCallback(user, "Database error", null);
-                                    else if (rc==-1) sendCallback(user, "Field not edited", null);
+                                    if (rc==-1) sendCallback(user, "Field not edited", null);
                                     else if (rc==-2) sendCallback(user, "Item not added", null);
                                     else if (rc==-3) sendCallback(user, "Item not removed", null);
                                     else if (rc==1) sendCallback(user, "Item added", null);
@@ -268,7 +271,7 @@ public class RequestHandler implements Runnable {
     private String searchHandler(String user, String action) {
         try{
             //Split the action string
-            System.out.println("Action: " + action);
+            //System.out.println("Action: " + action);
             String[] splitString = action.split("_");
             //Get the table in which to search
             String table;
@@ -301,27 +304,90 @@ public class RequestHandler implements Runnable {
             sqlQuery = sqlQuery.concat(";");
             System.out.println("SQL produced is: " + sqlQuery);
 
-            //Execute query
-            connect();
-            Statement statement = connection.createStatement();
-
-            ResultSet rs = statement.executeQuery(sqlQuery);
-            if (!rs.next()){
-                System.out.println("No results");
-                return null;
-            }
-
-            String results = ""; //Concatenates results into a string
-
-            do{
-                results = results.concat(rs.getString("name")+"_");
-            } while (rs.next());
-
-            return results;
+            //Ask for database handler to execute query
+            databaseAccess(user, sqlQuery, true, "name", Request.SEARCH);
+            //Wait for database reply
+            return (String) databaseReply(user, Request.SEARCH);
         } catch (Exception e){
             e.printStackTrace();
             return null;
         }
+    }
+
+    private void databaseAccess(String user, String sqlQuery, boolean isQuery, String columns, int feature) throws IOException {
+        MulticastSocket socket = new MulticastSocket();
+        Map<String, Object> data = new HashMap<>();
+
+        data.put("server", serverNumber);
+        data.put("feature", String.valueOf(Request.DB_ACCESS));
+        data.put("feature_requested", feature);
+        data.put("username", user);
+        data.put("sql", sqlQuery);
+        data.put("isquery", isQuery);
+        data.put("columns", columns);
+
+        byte[] buffer = s.serialize(data);
+
+        //Create udp packet
+        InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
+        socket.send(packet);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object databaseReply(String user, int feature_requested){
+        try{
+            MulticastSocket socket = new MulticastSocket(PORT_DB_ANSWER);
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            socket.joinGroup(group);
+
+            byte[] buffer = new byte[8192];
+
+            DatagramPacket packetIn = new DatagramPacket(buffer, buffer.length);
+            socket.receive(packetIn);
+
+            Map<String, Object> data = (Map<String, Object>) s.deserialize(packetIn.getData());
+
+            //Check if response is the one we want
+            if (Integer.parseInt((String)data.get("server")) == serverNumber //If this server requested it
+                    && ((String)data.get("username")).matches(user) //And it's for this user
+                    && Integer.parseInt((String)data.get("feature_requested")) == feature_requested){ //And its the wanted feature
+                //It's our response
+                if (feature_requested == Request.SEARCH){ //If a SEARCH was requested
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.NAME_EXISTS){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.UPDATE_LOGIN_STATE){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.GET_NOTES){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.CHECK_USER_EXISTS){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.REGISTER_USER){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.CHECK_EDITOR_STATE){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.MAKE_EDITOR){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.CHECK_LOGIN_STATE){
+                    return data.get("results");
+                }
+                else if (feature_requested == Request.ADD_ITEM){
+                    return data.get("results");
+                }
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     /**
@@ -334,7 +400,7 @@ public class RequestHandler implements Runnable {
      * @param code the Request code associated with edit type, if an edit was made
      */
     private void sendSingleNotification(String targetUser, String user, String edit, int code) {
-        try{
+        /*try{
             connect();
             Statement statement = connection.createStatement();
 
@@ -410,7 +476,7 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     /**
@@ -420,45 +486,27 @@ public class RequestHandler implements Runnable {
      */
     private void sendMultipleNotifications(String user, String notes){
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            //Create packet and send it
+            //Create multicast socket
+            MulticastSocket socket = new MulticastSocket();
 
-            int rc = checkIfUserExists(user);
+            //Create data map
+            Map<String, Object> callback = new HashMap<>();
+            callback.put("feature", String.valueOf(Request.NOTE_DELIVER));
+            callback.put("username", user);
+            callback.put("notes", notes);
 
-            if (rc==NO_USER_FOUND){
-                connection.close();
-                return;
-            }
-            else if (rc==DB_EXCEPTION){
-                System.out.println("Failed to send all notifications");
-                connection.close();
-                return;
-            }
-            else{
-                //Create packet and send it
-                //Create multicast socket
-                MulticastSocket socket = new MulticastSocket();
+            byte[] buffer = s.serialize(callback);
 
-                //Create data map
-                Map<String, Object> callback = new HashMap<>();
-                callback.put("feature", String.valueOf(Request.NOTE_DELIVER));
-                callback.put("username", user);
-                callback.put("notes", notes);
-
-                byte[] buffer = s.serialize(callback);
-
-                //Create udp packet
-                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-                socket.send(packet);
-            }
+            //Create udp packet
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+            socket.send(packet);
 
             //Clear the notes
-            statement.executeUpdate("UPDATE Users SET notes=null WHERE name=\"" + user + "\";");
-            connection.close();
+            String sql = "UPDATE Users SET notes=null WHERE name=\"" + user + "\";";
+            databaseAccess(user,sql, false, "", Request.CLEAR_NOTES);
 
-        } catch (SQLException e) {
-            e.printStackTrace();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -474,24 +522,25 @@ public class RequestHandler implements Runnable {
      */
     private String getAllNotes(String user) {
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT notes FROM Users WHERE name=\"" + user + "\";";
 
-            ResultSet rs = statement.executeQuery("SELECT notes FROM Users WHERE name=\""
-                    + user + "\";");
-
-            if (!rs.next()){
-                connection.close();
-                System.out.println("NO RESULT RECEIVED");
-                return null;
+            databaseAccess(user, sql, true, "notes", Request.GET_NOTES);
+            //Wait for answer
+            String results = (String) databaseReply(user, Request.GET_NOTES);
+            //Split string
+            if (results != null){
+                String[] tokens = results.split("_");
+                //Format example: 1_notes_Note 1 | Note number two | Another one_
+                if (tokens.length < 2){
+                    System.out.println("NO RESULT RECEIVED");
+                    return null;
+                }
+                else{
+                    return tokens[2];
+                }
             }
-            else{
-                String notes = rs.getString("notes");
-                connection.close();
-                return notes;
-            }
 
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
@@ -579,29 +628,26 @@ public class RequestHandler implements Runnable {
     private int addItem(String name, String table) {
         // TODO (optional) Allow more parameters when creating new album or artist
         try{
-            connect();
-            Statement statement = connection.createStatement();
-
             //Check if same name already exists
             int rc = checkIfNameExists(name, table);
             if (rc==-1){
                 System.out.println("Name already exists");
-                connection.close();
                 return -2;
             }
             else if (rc==0){
                 //Name of the field is to be changed
-                rc = statement.executeUpdate("INSERT INTO \"" + table + "\" (name) VALUES (\"" + name + "\");");
-                connection.close();
+                String sql = "INSERT INTO \"" + table + "\" (name) VALUES (\"" + name + "\");";
+                databaseAccess(name, sql, false, "", Request.ADD_ITEM);
+                rc = Integer.parseInt((String)databaseReply(name, Request.ADD_ITEM));
                 if (rc==-1){
                     System.out.println("Error adding item to database");
                     return -2;
                 }
             }
             return 1;
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
+            return -1;
         }
     }
 
@@ -613,15 +659,13 @@ public class RequestHandler implements Runnable {
      */
     private int removeItem(String name, String table){
         try{
-            connect();
-            Statement statement = connection.createStatement();
-
             //Check if same name already exists
             int rc = checkIfNameExists(name, table);
             if (rc==-1){
                 //Name of the field is to be changed
-                rc = statement.executeUpdate("DELETE FROM \"" + table + "\" WHERE name=\"" + name + "\";");
-                connection.close();
+                String sql = "DELETE FROM \"" + table + "\" WHERE name=\"" + name + "\";";
+                databaseAccess(name, sql, false, "", Request.REMOVE_ITEM);
+                rc = Integer.parseInt((String)databaseReply(name, Request.REMOVE_ITEM));
                 if (rc==-1){
                     System.out.println("Error removing item from database");
                     return -3;
@@ -631,13 +675,12 @@ public class RequestHandler implements Runnable {
             }
             else if (rc==0){
                 System.out.println("Item doesn't exist");
-                connection.close();
                 return -3;
             }
             else return -3;
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
+            return -1;
         }
     }
 
@@ -652,12 +695,9 @@ public class RequestHandler implements Runnable {
      * 0 if successful
      */
     private int attributeEdit(int attribute, String name, String newValue, String table) {
-        System.out.println("Entered attributeEdit");
         try{
             //Check if attribute is to be edited
-            connect();
-            Statement statement = connection.createStatement();
-            int rc = -1;
+            int rc = 0;
             switch (attribute){
                 case Request.EDIT_NAME:
                     //Check if the new name doesn't already exists
@@ -668,68 +708,65 @@ public class RequestHandler implements Runnable {
                     }
                     else if (rc==0){
                         //Name of the field is to be changed
-                        rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_NAME
-                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                        String sql = "UPDATE " + table + " SET \"" + DB_FIELD_NAME
+                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     }
                     break;
                 case Request.EDIT_BIRTH:
                     //Artist birth year is to be changed
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_BIRTH
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    String sql = "UPDATE " + table + " SET \"" + DB_FIELD_BIRTH
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_GENRE:
                     //Album genre is to be changed
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_GENRE
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_GENRE
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_LYRICS:
                     //Music lyrics
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_LYRICS
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_LYRICS
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_DESCRIPTION:
                     //Album descritpion
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_DESCRIPTION
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_DESCRIPTION
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_YEAR:
                     //Album or music year
-                    rc = statement.executeUpdate("UPDATE " + table + " SET \"" + DB_FIELD_YEAR
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
+                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_YEAR
+                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_FIELD_ALBUMS:
                 case Request.EDIT_FIELD_ARTIST:
                     //Albums field in music | Artist field in albums and music
                     //Check if new album or artist exists in database and returns it's id
                     int id = (attribute==Request.EDIT_FIELD_ALBUMS ? checkIfAlbumExists(newValue) : checkIfArtistExists(newValue));
-                    connect();
-                    if (id==DB_EXCEPTION){
-                        System.out.println("Error updating value");
-                        connection.close();
-                        return DB_EXCEPTION;
-                    }
-                    else if (id==-1){
-                        connection.close();
+                    if (id==-1){
                         return -1;
                     }
                     else{
                         //Update the value
-                        rc = statement.executeUpdate("UPDATE " + table + " SET \""
+                        sql = "UPDATE " + table + " SET \""
                                 + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
-                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"");
-                        connection.close();
+                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                         return 0;
                     }
             }
 
             if (rc==-1){
                 System.out.println("Error updating value");
-                connection.close();
-                return DB_EXCEPTION;
+                return -1;
             }
             else{
                 System.out.println("Field edited");
-                connection.close();
                 return 0;
             }
         } catch (Exception e){
@@ -747,23 +784,23 @@ public class RequestHandler implements Runnable {
      */
     private int checkIfNameExists(String name, String table){
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT name FROM \"" + table + "\" WHERE name=\"" + name + "\";";
+            databaseAccess(name, sql, true, "name", Request.CHECK_USER_EXISTS);
+            String results = (String) databaseReply(name, Request.CHECK_USER_EXISTS);
+            if (results != null){
+                String[] tokens = results.split("_");
+                if(tokens.length < 2){
+                    System.out.println("No item with given name found");
+                    return 0;
+                }
 
-            ResultSet rs = statement.executeQuery("SELECT name FROM \"" + table + "\" WHERE name=\"" + name + "\";");
-            if(!rs.next()){
-                System.out.println("No item with given name found");
-                connection.close();
-                return 0;
+                return -1;
             }
 
-            connection.close();
-            return -1;
-
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -774,24 +811,24 @@ public class RequestHandler implements Runnable {
      */
     private int checkIfArtistExists(String artist) {
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT id FROM Artists WHERE name=\"" + artist + "\";";
+            databaseAccess(artist, sql, true, "id", Request.CHECK_USER_EXISTS);
+            String results = (String) databaseReply(artist, Request.CHECK_USER_EXISTS);
+            if (results != null){
+                String[] tokens = results.split("_"); //Format: 1_id_245
+                if(tokens.length < 2){
+                    System.out.println("No artist with given name found");
+                    return -1;
+                }
 
-            ResultSet rs = statement.executeQuery("SELECT id FROM Artists WHERE name=\"" + artist + "\";");
-            if(!rs.next()){
-                System.out.println("No artist with given name found");
-                connection.close();
-                return -1;
+
+                return Integer.parseInt(tokens[2]);
             }
 
-            int id = rs.getInt("id");
-            connection.close();
-            return id;
-
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -802,23 +839,22 @@ public class RequestHandler implements Runnable {
      */
     private int checkIfAlbumExists(String album) {
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT id FROM Albums WHERE name=\"" + album + "\";";
+            databaseAccess(album, sql, true, "id", Request.CHECK_USER_EXISTS);
+            String results = (String) databaseReply(album, Request.CHECK_USER_EXISTS);
+            if (results != null){
+                String[] tokens = results.split("_"); //Format: 1_id_245
+                if(tokens.length < 2){ //Format: 1_id_245
+                    System.out.println("No album with given name found");
+                    return -1;
+                }
 
-            ResultSet rs = statement.executeQuery("SELECT id FROM Albums WHERE name=\"" + album + "\";");
-            if(!rs.next()){
-                System.out.println("No album with given name found");
-                return -1;
+                return Integer.parseInt(tokens[2]);
             }
-
-            int id = rs.getInt("id");
-            connection.close();
-            return id;
-
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -831,47 +867,47 @@ public class RequestHandler implements Runnable {
      */
     private int registerHandler(String user, String pass) {
         try{
-            connect();
-            Statement statement = connection.createStatement();
-
             //Check if user already exists
             int rc = checkIfUserExists(user);
             if (rc!=NO_USER_FOUND){
                 System.out.println("User already exists/database error");
-                connection.close();
                 return -1;
             }
 
-            connect(); //Connection may have been closed
-            String editorState = "0";
+            String editorState = "0"; //If first user, editor state is set to 1
             //Checks if it is first user
-            ResultSet rs = statement.executeQuery("SELECT * FROM Users;");
-            if(!rs.next()){
-                //First user being added
-                System.out.println("First user");
-                editorState = "1";
+            String sql = "SELECT name FROM Users;";
+            databaseAccess(user, sql, true, "name", Request.CHECK_USER_EXISTS);
+            String results = (String)databaseReply(user, Request.CHECK_USER_EXISTS);
+            if (results != null){
+                String[] tokens = results.split("_"); // 1_name_user1
+                if(tokens.length < 2){
+                    //First user being added
+                    System.out.println("First user");
+                    editorState = "1"; //First user, first editor
+                }
+
+                //Add the user to the database
+                sql = "INSERT INTO Users " +
+                        "(name, password, login, editor) " +
+                        "VALUES (\"" + user +"\",\"" + pass + "\",\"0\",\"" + editorState + "\");";
+                databaseAccess(user, sql, false, "", Request.REGISTER_USER);
+                rc = Integer.parseInt((String)databaseReply(user, Request.REGISTER_USER));
+
+                if (rc==-1){
+                    System.out.println("Error adding user");
+                    return -1;
+                }
+                else{
+                    System.out.println("Added user");
+                    return 0;
+                }
             }
 
-            //Add the user to the database
-            rc = statement.executeUpdate("INSERT INTO Users " +
-                    "(name, password, login, editor, has_notifications) " +
-                    "VALUES (\"" + user +"\",\"" + pass + "\",\"0\",\"" + editorState + "\",\"0\");");
-
-            connection.close();
-
-            if (rc==-1){
-                System.out.println("Error adding user");
-                return DB_EXCEPTION;
-            }
-            else{
-                System.out.println("Added user");
-                return 0;
-            }
-
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -883,37 +919,33 @@ public class RequestHandler implements Runnable {
      */
     @SuppressWarnings("unchecked")
     private int makeEditorHandler(String editor, String newEditor) {
-
         try{
-            connect();
-            Statement statement = connection.createStatement();
-
             //Check if user to be made editor exists
             int rc = checkIfUserExists(newEditor);
-            connect(); //Connection may have been closed
+
             if (rc==NO_USER_FOUND){
-                connection.close();
+
                 return NO_USER_FOUND;
             }
             else{
                 //Update the value
-                rc = statement.executeUpdate("UPDATE Users SET editor=\"1\" WHERE name=\""
-                        + newEditor + "\";");
-                connection.close();
+                String sql = "UPDATE Users SET editor=\"1\" WHERE name=\"" + newEditor + "\";";
+                databaseAccess(editor, sql, false, "", Request.MAKE_EDITOR);
+                rc = Integer.parseInt((String)databaseReply(editor, Request.MAKE_EDITOR));
 
                 if (rc==-1){
                     System.out.println("ERROR MAKING EDITOR");
-                    return DB_EXCEPTION;
+                    return -1;
                 }
                 else{
                     System.out.println("MADE EDITOR");
                     return 0;
                 }
             }
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -924,25 +956,25 @@ public class RequestHandler implements Runnable {
      */
     private int checkIfUserExists(String user) {
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT name FROM Users WHERE name=\"" + user + "\";";
+            databaseAccess(user, sql, true, "name", Request.CHECK_USER_EXISTS);
+            //Wait for reply
+            String results = (String)databaseReply(user, Request.CHECK_USER_EXISTS);
+            System.out.println("(checkIfUserExists) results: " + results);
+            if (results != null){
+                String[] tokens = results.split("_");
+                if(tokens.length < 2){
+                    System.out.println("USER NOT FOUND");
+                    return NO_USER_FOUND;
+                }
 
-            ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\""
-                    + user + "\";");
-
-            if(!rs.next()){
-                System.out.println("USER NOT FOUND");
-                connection.close();
-                return NO_USER_FOUND;
+                return 0;
             }
 
-            connection.close();
-            return 0;
-
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -980,42 +1012,41 @@ public class RequestHandler implements Runnable {
      */
     private int checkLoginState(String user){
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT login, timestamp FROM Users WHERE name=\"" + user + "\";";
+            databaseAccess(user, sql, true, "login_timestamp", Request.CHECK_LOGIN_STATE);
+            String results = (String) databaseReply(user, Request.CHECK_LOGIN_STATE);
 
-            ResultSet rs = statement.executeQuery("SELECT login, timestamp FROM Users WHERE name=\""
-                    + user + "\";");
-
-            if(!rs.next()){
-                System.out.println("NO USER FOUND");
-                connection.close();
-                return NO_USER_FOUND;
-            }
-
-            if((rs.getString("login")).matches("1")){
-                //Logged in, now check if session should be timed out
-                long unixTime = System.currentTimeMillis() / 1000L;
-                //If the difference between now seconds and timestamp is bigger than 1800 seconds (30 minutes)
-                if((unixTime - rs.getLong("timestamp")) > 1800){
-                    //Set login state to logged out
-                    statement.executeUpdate("UPDATE Users SET login=\"0\" WHERE name=\""
-                            + user + "\";");
-                    connection.close();
-                    return TIMEOUT;
+            if (results != null){
+                //Split string
+                String[] tokens = results.split("_"); //Format: 2_login_1_timestamp_1556774
+                if(tokens.length < 2){
+                    System.out.println("NO USER FOUND");
+                    return NO_USER_FOUND;
                 }
 
-                connection.close();
-                return 0;
-            }
-            else{
-                connection.close();
-                return NO_LOGIN;
+                if(tokens[2].matches("1")){
+                    //Logged in, now check if session should be timed out
+                    long unixTime = System.currentTimeMillis() / 1000L;
+                    //If the difference between now seconds and timestamp is bigger than 1800 seconds (30 minutes)
+                    if((unixTime - Long.parseLong(tokens[4])) > 1800){
+                        //Set login state to logged out
+                        sql = "UPDATE Users SET login=\"0\" WHERE name=\"" + user + "\";";
+                        databaseAccess(user, sql, false, "", Request.TIMEOUT);
+                        return TIMEOUT;
+                    }
+
+                    return 0;
+                }
+                else{
+                    return NO_LOGIN;
+                }
             }
 
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
+            return -1;
         }
+        return -1;
     }
 
     /**
@@ -1027,25 +1058,24 @@ public class RequestHandler implements Runnable {
      */
     private int checkIfEditor(String user){
         try{
-            connect();
-            Statement statement = connection.createStatement();
+            String sql = "SELECT editor FROM Users WHERE name=\"" + user + "\";";
+            databaseAccess(user, sql, true, "editor", Request.CHECK_EDITOR_STATE);
+            String results = (String) databaseReply(user, Request.CHECK_EDITOR_STATE);
 
-            ResultSet rs = statement.executeQuery("SELECT editor FROM Users WHERE name=\""
-                    + user + "\";");
-
-            if((rs.getString("editor")).matches("1")){
-                connection.close();
-                return 0;
+            if (results != null){
+                String[] tokens = results.split("_"); //Format: 1_editor_0
+                if(tokens[2].matches("1")){
+                    return 0;
+                }
+                else{
+                    return NOT_EDITOR;
+                }
             }
-            else{
-                connection.close();
-                return NOT_EDITOR;
-            }
 
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
+        return -1;
     }
 
     /**
@@ -1060,63 +1090,61 @@ public class RequestHandler implements Runnable {
     @SuppressWarnings("unchecked")
     private int loginHandler(String user, String password, int code){
         try{
-            connect();
-            Statement statement = connection.createStatement();
-
             //Check login state
-            ResultSet rs = statement.executeQuery("SELECT * FROM Users WHERE name=\"" + user + "\";");
-            if(!rs.next()){
-                System.out.println("NO USER FOUND");
-                connection.close();
-                return NO_USER_FOUND;
-            }
-            if (code==Request.LOGIN){ //User wants to login
-                boolean alreadyLogin = ((rs.getString("login")).matches("1"));
-                if (alreadyLogin){
-                    System.out.println("ALREADY LOGIN");
-                    connection.close();
-                    return ALREADY_LOGIN;
-                }
-                else{
-                    //Updates login state and timestamp
-                    long unixTime = System.currentTimeMillis() / 1000L;
-                    int rc = statement.executeUpdate("UPDATE Users SET login=\"1\", timestamp=\"" + unixTime + "\" WHERE name=\""
-                            + user + "\" AND password=\"" + password + "\";");
-                    connection.close();
-                    if(rc==0){
-                        System.out.println("NO LOGIN");
-                        return -1;
-                    }
-                    else{
-                        System.out.println("LOGIN");
-                        return 0;
-                    }
-                }
-            }
-            else{ //User wants to logout
-                int rc = statement.executeUpdate("UPDATE Users SET login=\"0\" WHERE name=\""
-                        + user + "\";");
-                connection.close();
+            String sql = "SELECT * FROM Users WHERE name=\"" + user + "\";";
+            //Request database query
+            databaseAccess(user, sql, true, "name_login_timestamp", Request.NAME_EXISTS);
+            //Wait for database answer
+            String result = (String) databaseReply(user, Request.NAME_EXISTS);
+            //Split results
+            if (result != null){
+                String[] tokens = result.split("_");
+                //Check if name exists
 
-                System.out.println("LOGOUT");
-                return 0;
+                if(tokens.length < 2){ //Only got number of columns of the query
+                    System.out.println("NO USER FOUND");
+                    return NO_USER_FOUND;
+                }
+
+                if (code==Request.LOGIN){ //User wants to login
+                    boolean alreadyLogin = tokens[4].matches("1"); //Format, example: 3_name_user1_login_1_timestamp_15538223
+                    if (alreadyLogin){
+                        System.out.println("ALREADY LOGIN");
+                        return ALREADY_LOGIN;
+                    }
+                    else{ //Not yet logged in
+                        //Updates login state and timestamp
+                        long unixTime = System.currentTimeMillis() / 1000L;
+                        //Request database access
+                        sql = "UPDATE Users SET login=\"1\", timestamp=\"" + unixTime + "\" WHERE name=\""
+                                + user + "\" AND password=\"" + password + "\";";
+                        databaseAccess(user, sql,false,"", Request.UPDATE_LOGIN_STATE);
+                        //Wait for database reply
+                        int rc = Integer.parseInt((String)databaseReply(user, Request.UPDATE_LOGIN_STATE));
+                        if(rc==0){
+                            System.out.println("NO LOGIN");
+                            return -1;
+                        }
+                        else{
+                            System.out.println("LOGIN");
+                            return 0;
+                        }
+                    }
+                }
+                else{ //User wants to logout
+                    sql = "UPDATE Users SET login=\"0\" WHERE name=\""
+                            + user + "\";";
+                    databaseAccess(user,sql,false,"", Request.UPDATE_LOGIN_STATE);
+                    int rc = Integer.parseInt((String)databaseReply(user, Request.UPDATE_LOGIN_STATE));
+
+                    System.out.println("LOGOUT");
+                    return 0;
+                }
             }
 
-        } catch (SQLException e) {
-            System.out.println("Error getting connection to database");
+        } catch (IOException e) {
             e.printStackTrace();
-            return DB_EXCEPTION;
         }
-    }
-
-    /**
-     * Small method to open a database connection if one is not already open, valid or in use
-     * @throws SQLException
-     */
-    private void connect() throws SQLException {
-
-
-        // create the connection
-        connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
+        return -1;
     }
 }

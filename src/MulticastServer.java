@@ -43,9 +43,9 @@ public class MulticastServer extends Thread {
                 MulticastSocket serverConnection = new MulticastSocket();
                 InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
                 serverConnection.joinGroup(group);
-                bufferReceive = new byte[256];
+                bufferReceive = new byte[2048];
                 Map<String, Object> data = new HashMap<>(); Serializer serializer = new Serializer();
-                data.put("feature", Request.REQUEST_NUMBER);
+                data.put("feature", String.valueOf(Request.REQUEST_NUMBER));
                 bufferReceive = serializer.serialize(data);
                 DatagramPacket out = new DatagramPacket(bufferReceive, bufferReceive.length, group, PORT_DBCONNECTION);
                 serverConnection.send(out);
@@ -141,7 +141,7 @@ public class MulticastServer extends Thread {
             socket.joinGroup(group);
 
             while (true) {
-                bufferReceive = new byte[256];
+                bufferReceive = new byte[4096];
                 DatagramPacket packetIn = new DatagramPacket(bufferReceive, bufferReceive.length);
                 socket.receive(packetIn);
                 try{

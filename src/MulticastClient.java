@@ -187,7 +187,7 @@ class MulticastUser extends Thread {
 
                         if (readKeyboard.matches("music")){
                             action = action.concat(String.valueOf(Request.EDIT_MUSIC)+"_");
-                            System.out.println("Which field to edit?(name,year,album,artist): ");
+                            System.out.println("Which field to edit?(name,year,album,artist,lyrics): ");
                             readKeyboard = keyboardScanner.nextLine();
                             if(readKeyboard.matches("name")){
                                 action = action.concat(String.valueOf(Request.EDIT_NAME)+"_");
@@ -200,6 +200,9 @@ class MulticastUser extends Thread {
                             }
                             else if (readKeyboard.matches("artist")){
                                 action = action.concat(String.valueOf(Request.EDIT_FIELD_ARTIST)+"_");
+                            }
+                            else if (readKeyboard.matches("lyrics")){
+                                action = action.concat(String.valueOf(Request.EDIT_LYRICS)+"_");
                             }
                             else{
                                 System.out.println("No attribute with that name");
@@ -293,6 +296,9 @@ class MulticastUser extends Thread {
                         readKeyboard = keyboardScanner.nextLine();
                         action = action.concat(readKeyboard);
                         data.put("action", action);
+                    }
+                    else{
+                        System.out.println("Bad token");
                     }
 
                 }
@@ -415,8 +421,11 @@ class DecodePacket implements Runnable{
                 System.out.println("Resposta: " + data.get("answer"));
                 if (((String)data.get("answer")).matches("Found results")){
                     String[] results = ((String)data.get("optional")).split("_");
-                    for (String s:results){
-                        System.out.println(s);
+                    //Verifica primeiro quantas colunas os resultados têm
+                    int numberColumns = Integer.parseInt(results[0]);
+                    //Writes all column names on console
+                    for (int i=0, k=1; i<numberColumns; i++, k+=2){
+                        System.out.print(results[k]);
                     }
                 }
                 System.out.println("Opcional: " + data.get("optional"));
