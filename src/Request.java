@@ -50,7 +50,7 @@ public class Request {
     protected static final int SEARCH_BY_GENRE   = 41; //Pesquisa por genero
     protected static final int SEARCH_BY_ALBUM   = 42; //Pesquisa por album
 
-    //Internal
+    //Internal use only
     protected static final int REQUEST_NUMBER    = 43;
     protected static final int ASSIGN_NUMBER     = 44;
     protected static final int CHECK_SERVER_UP   = 45;

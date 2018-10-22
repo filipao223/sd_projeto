@@ -41,7 +41,7 @@ servidor é aumentada dinamicamente assim que novos sao ligados*/
 
 <-- server_down : int (server number)
 
-/*O oposto de new server, remove da lista o numero recebido*/
+/*O oposto de new server, remove da lista o numero recebido */
 
 registo
 
