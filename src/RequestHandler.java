@@ -268,6 +268,20 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Performs a search on the database, using a given string as the search parameters.
+     * First step is to split the action string, which is a concatenated string of Request codes. The codes represent which attribute
+     * to search with, like name, genre of an album, or music artist.
+     * <p>
+     * Following this, the method iterates on the produced String array, building the SQL query depending on
+     * which Request codes are used.
+     * <p>
+     * Last step is to request a database access using {@link #databaseAccess(String, String, boolean, String, int)} and a
+     * database reply using {@link #databaseReply(String, int)}.
+     * @param user the user that requested the search
+     * @param action concatenated string of Request codes and attribute values
+     * @return the database query results in String format, which can be null if no results were found
+     */
     private String searchHandler(String user, String action) {
         try{
             //Split the action string
@@ -314,6 +328,22 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Handles all interaction with database in this class.
+     * <p>
+     * When called, all the parameters passed are packed into a HashMap and sent via multicast to DBConnection,
+     * which will then execute the given SQL query as parameter, and return the results via another UDP multicast datagram.
+     * <p>
+     * Results returned are dependent on the query type, if it is a SELECT statement, and the wanted columns given as parameter,
+     * which are a String of this format, column1_column2_..._columnN.
+     * @param user user that requested the database access
+     * @param sqlQuery the SQL command to execute
+     * @param isQuery if it's a SELECT command or not
+     * @param columns columns to be returned to the user for each row queried
+     * @param feature feature requested by the user, mainly to identify which database reply belongs to who in
+     *                a simultaneous user situation
+     * @throws IOException
+     */
     private void databaseAccess(String user, String sqlQuery, boolean isQuery, String columns, int feature) throws IOException {
         MulticastSocket socket = new MulticastSocket();
         Map<String, Object> data = new HashMap<>();
@@ -334,6 +364,19 @@ public class RequestHandler implements Runnable {
         socket.send(packet);
     }
 
+    /**
+     * Receives all replies from the database in this class.
+     * <p>
+     * Waits for a UDP datagram to come from the DBConnection on the class's multicast address on a specific port for
+     * database replies.
+     * <p>
+     * Uses the name of the user who requested the database access, the feature that was requested and the server number
+     * to check which reply belongs to what user request.
+     * @param user the user that requested the database access
+     * @param feature_requested the feature that the user requested
+     * @return an Object with the query results, this can be a string with multiple row information, or a simple integer
+     *          reporting the success of the query, depending exactly on which feature was requested
+     */
     @SuppressWarnings("unchecked")
     private Object databaseReply(String user, int feature_requested){
         try{
