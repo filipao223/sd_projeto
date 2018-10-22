@@ -125,14 +125,16 @@ pesquisa
 -artist: name
 <-- resposta : callback
 
-consulta album 
+consulta album
 
---> name : string
+--> username : string
+--> album : string
 <-- resposta : callback
 
 consulta artista 
 
---> name : string
+--> username : string
+--> artist : string
 <-- resposta : callback
 
 critica
