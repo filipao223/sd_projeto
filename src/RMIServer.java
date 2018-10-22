@@ -16,8 +16,11 @@ import java.util.concurrent.Executors;
 public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public ArrayList<Client> client = new ArrayList<>();
-	public Serializer serializer;
+	public static Serializer serializer = new Serializer();
 	private static List<Integer> serverNumbers = new ArrayList<>();
+	private static String MULTICAST_ADDRESS = "226.0.0.1";
+	private static int PORT = 4321;
+	private static ExecutorService executor = Executors.newFixedThreadPool(5);
 
 	public RMIServer() throws RemoteException {
 		super();
@@ -26,7 +29,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	public static void remake(RMIServer server) throws RemoteException, InterruptedException {
 		int vezes = 0;
 		while (true) {
-			Thread.sleep(1000);
+			Thread.sleep(5000);
 			Registry r = LocateRegistry.getRegistry(1099);
 			try {
 				System.out.println("À procura");
@@ -76,32 +79,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			System.out.println(mentry.getValue());
 		}
 
-		try {
-			socket = new MulticastSocket();  // create socket without binding it (only for sending)
-			Scanner keyboardScanner = new Scanner(System.in);
-
-			//Pedido inicial, coloca a feature CHECK_SERVER_UP, a qual o servidor vai responder
-			//(ou nao) o seu numero
-			Map<String, Object> checkServer = new HashMap<>();
-			checkServer.put("feature", String.valueOf(Request.CHECK_SERVER_UP));
-
-			byte[] buffer = s.serialize(checkServer);
-
-			InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-			DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-			socket.send(packet); //Envia
-
-			buffer = s.serialize(h);
-
-			group = InetAddress.getByName(MULTICAST_ADDRESS);
-			packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-			socket.send(packet);
-
-
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		//Send data to worker thread
+        executor.submit(new SendPacket(serverNumbers, h));
 
 	}
 
@@ -117,15 +96,139 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			Registry r = LocateRegistry.createRegistry(1099);
 			r.rebind("MainServer", s_main);
 			System.out.println("Server ready.");
+
+			ReceivePacket receivePacket = new ReceivePacket(serverNumbers);
+			receivePacket.start();
+
+            try{
+                //First check if there are available servers
+                //Keep trying to connect
+                MulticastSocket socket = new MulticastSocket();  // create socket without binding it (only for sending)
+                Scanner keyboardScanner = new Scanner(System.in);
+
+                //Pedido inicial, coloca a feature CHECK_SERVER_UP, a qual o servidor vai responder
+                //(ou nao) o seu numero
+                Map<String, Object> checkServer = new HashMap<>();
+                checkServer.put("feature", String.valueOf(Request.CHECK_SERVER_UP));
+
+                byte[] buffer = serializer.serialize(checkServer);
+
+                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                socket.send(packet); //Envia
+
+            } catch (java.net.UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
 			while(true){
 				s_backup.remake(s_backup);
 				s_main.remake(s_main);
 			}
-		}catch (RemoteException re) {
+        }catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 	}
 
+}
+
+class ReceivePacket extends Thread{
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
+    private static int PORT = 4321;
+    private static Serializer serializer = new Serializer();
+    private static List<Integer> serverNumbers;
+
+    ReceivePacket(List<Integer> serverNumbers){
+        super("RMIServer");
+        ReceivePacket.serverNumbers = serverNumbers;
+    }
+
+    @Override
+    public void run() {
+        try{
+            MulticastSocket socket = new MulticastSocket(PORT);
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            socket.joinGroup(group);
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+
+            while (true){
+                byte[] buffer = new byte[8192];
+                DatagramPacket packetIn = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packetIn);
+
+                //Hand off to worker
+                executor.submit(new Worker(serverNumbers, packetIn));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    class Worker implements Runnable{
+        private List<Integer> serverNumbers;
+        private DatagramPacket packetIn;
+
+        Worker(List<Integer> serverNumbers, DatagramPacket packetIn){
+            this.serverNumbers = serverNumbers;
+            this.packetIn = packetIn;
+        }
+
+        @Override
+        public void run() {
+            System.out.println("Received answer");
+        }
+    }
+}
+
+class SendPacket implements Runnable{
+	private List<Integer> serverNumbers;
+	private static String MULTICAST_ADDRESS = "226.0.0.1";
+	private static int PORT = 4321;
+	private Map<String, Object> data;
+	private int retry = 5000;
+	private static Serializer serializer = new Serializer();
+
+	SendPacket(List<Integer> serverNumbers, HashMap<String, Object> data){
+	    this.serverNumbers = serverNumbers;
+	    this.data = data;
+    }
+
+    @Override
+    public void run() {
+        //First generate a server number, if there are any
+        //If no servers are available, it keeps trying until there are
+        // TODO implement timeout
+        try{
+            Random r = new Random();
+            while (serverNumbers.isEmpty()){
+                System.out.println("No servers available, retrying in " + retry/1000 + " seconds");
+                Thread.sleep(retry);
+            }
+
+            //Servers are available
+            int index = r.nextInt(serverNumbers.size());
+            //Put server number in hashmap
+            data.put("server", String.valueOf(serverNumbers.get(index)));
+            //Send the data
+            MulticastSocket socket = new MulticastSocket(PORT);
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            socket.joinGroup(group);
+
+            byte[] buffer = serializer.serialize(data);
+
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+            socket.send(packet);
+
+            //Start packet listener
+
+        } catch (InterruptedException e) {
+            System.out.println("Aborted request send");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
