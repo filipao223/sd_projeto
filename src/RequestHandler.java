@@ -261,6 +261,29 @@ public class RequestHandler implements Runnable {
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
+                        break;
+            //-----------------------------------------------------------------------------------
+                    case Request.DETAILS_ALBUM:
+                    case Request.DETAILS_ARTIST:
+                        // FIXME (maybe) should this simple query require auth?
+                        // TODO use LIKE keyword in SQL query
+                        try{
+                            String user = (String) data.get("username");
+                            String item = (code== Request.DETAILS_ALBUM ?
+                                    (String)data.get("album"):(String)data.get("artist"));
+                            //Build sql query
+                            String table = (code==Request.DETAILS_ALBUM ?
+                                    "Albums" : "Artists");
+                            String sql = "SELECT name,year,artist,genre FROM " + table + " WHERE name=\"" + item + "\";";
+                            //Access database
+                            databaseAccess(user, sql, true, "name_year_artist_genre", code);
+                            //Wait for reply
+                            String results = (String) databaseReply(user, code);
+                            if (results == null) sendCallback(user, "No results", null);
+                            else sendCallback(user, "Results found", results);
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
                 }
             }
         } catch (Exception e){
@@ -396,36 +419,7 @@ public class RequestHandler implements Runnable {
                     && ((String)data.get("username")).matches(user) //And it's for this user
                     && Integer.parseInt((String)data.get("feature_requested")) == feature_requested){ //And its the wanted feature
                 //It's our response
-                if (feature_requested == Request.SEARCH){ //If a SEARCH was requested
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.NAME_EXISTS){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.UPDATE_LOGIN_STATE){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.GET_NOTES){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.CHECK_USER_EXISTS){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.REGISTER_USER){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.CHECK_EDITOR_STATE){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.MAKE_EDITOR){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.CHECK_LOGIN_STATE){
-                    return data.get("results");
-                }
-                else if (feature_requested == Request.ADD_ITEM){
-                    return data.get("results");
-                }
+                return data.get("results");
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
