@@ -179,7 +179,60 @@ class ReceivePacket extends Thread{
 
         @Override
         public void run() {
-            System.out.println("Received answer");
+			try{
+				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
+
+//============================================NNEW=DO TIPO CALLBACK=============================================================
+				if (((String)data.get("feature")).matches("13")){
+					// TODO mudar a maneira de verificar se esta a receber resultados de pesquisa
+					System.out.println("------------RMI SERVER Callback is: ");
+					System.out.println("Feature: " + data.get("feature"));
+					System.out.println("Username: " + data.get("username"));
+					System.out.println("Resposta: " + data.get("answer"));
+					if (((String)data.get("answer")).matches("Found results")){
+						String[] results = ((String)data.get("optional")).split("_");
+						for (String s:results){
+							System.out.println(s);
+						}
+					}
+					System.out.println("Opcional: " + data.get("optional"));
+					System.out.println("-----------Done");
+				}
+//=============================================NOTIFICAÇÂO NOVO EDITOR=============================================================
+				else if (((String)data.get("feature")).matches("7")){
+					System.out.println("-----------New note: ");
+					// TODO (optional) Mudar "user1" was made editor para "you" were made editor
+					System.out.println(data.get("username") + " was made editor");
+				}
+//=============================================ENTREGA VARIAS NOTIFICAÇOES=============================================================
+				//Quando o user volta a ficar online, leva com as notificaçoes todas
+				else if (((String)data.get("feature")).matches("9")){
+					System.out.println("-----------New notes for " + data.get("username") + ": ");
+					String notes = (String) data.get("notes");
+					for (String note:notes.split("\\|")){
+						System.out.println(note);
+					}
+					System.out.println("-----------Done");
+				}
+//=============================================RESPOSTAS INTERNAS=============================================================
+				//O utilizador não recebe estas mensagens
+				//Novo servidor ligado
+				else if(((String)data.get("feature")).matches("30")){
+					System.out.println("-----------New server (" + data.get("new_server") + ")------------");
+					serverNumbers.add((int)data.get("new_server")); //Adiciona o numero do servidor à lista da classe
+				}
+				//Um servidor foi desligado
+				else if(((String)data.get("feature")).matches("31")){
+					System.out.println("-----------Server down (" + data.get("server_down") + ")------------");
+					if (!serverNumbers.isEmpty()) serverNumbers.remove((int)data.get("server_down")); //Remove o numero do servidor da lista da classe
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			} catch (Exception e){
+				e.printStackTrace();
+			}
         }
     }
 }
