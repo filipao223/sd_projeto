@@ -2,6 +2,7 @@
 <-- RMI Server
 
 Exemplo de um datagrama
+
 [ server | 2 ;  feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
 
 /*------Todos --> ------*/
@@ -101,6 +102,7 @@ Usar valores em Request (Request.EDIT_NAME, Request.EDIT_MUSIC, ...)
 Cada valor separada por "_"
 1. album, music, artist
 2.
+
 -album: name, year, artist, description, genre
 -music: name, album, artist, lyrics, year
 -artist: name, birth, description
