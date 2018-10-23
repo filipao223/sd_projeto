@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
 
 public class RMIServer extends UnicastRemoteObject implements Server {
 
-	public ArrayList<Client> client = new ArrayList<>();
+	public ArrayList<Client> client = new ArrayList<>(); //contem todos os clientes que vão estar ligados ao server
 	public static Serializer serializer = new Serializer();
 	private static List<Integer> serverNumbers = new ArrayList<>();
 	private static String MULTICAST_ADDRESS = "226.0.0.1";
@@ -26,17 +26,24 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		super();
 	}
 
+	/**
+	 *
+	 * @param backup
+	 * @param main
+	 * @throws RemoteException
+	 * @throws InterruptedException
+	 */
 	public static void remake(RMIServer backup,RMIServer main) throws RemoteException, InterruptedException {
 		int vezes = 0;
 		while (true) {
 			Thread.sleep(5000);
-			Registry r = LocateRegistry.getRegistry(1099);
+			Registry r = LocateRegistry.getRegistry(1099); // busca o registo do port 1099
 			try {
 				System.out.println("À procura");
-				r.lookup("MainServer");
+				r.lookup("MainServer"); // verifica se o port já contem o MainServer
 			}catch (ExportException e){
 				System.out.println("Já existe um");
-			} catch (NotBoundException e) {
+			} catch (NotBoundException e) { // se não contem testa 5 vezes e depois o servidor secundario assume o port
 				System.out.println("Nenhum server");
 				vezes += 1;
 				if(vezes == 5){
@@ -46,7 +53,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 					vezes = 0;
 					break;
 				}
-			} catch (ConnectException e) {
+			} catch (ConnectException e) { // se não contem testa 5 vezes e depois o servidor secundario assume o port
 				System.out.println("MainServer");
 				vezes += 1;
 				if(vezes == 5){
@@ -61,13 +68,18 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	}
 
 	public void subscribe(String name,Client c) throws RemoteException {
-		if(!client.contains(c)) {
+		if(!client.contains(c)) { //verifica se o arraylist de clients contem o cliente, se não, adiciona
 			client.add(c);
 			System.out.println("Subscribe " + name);
 		}
 	}
 
 
+	/**
+	 *
+	 * @param h
+	 * @throws RemoteException
+	 */
 	public void receive(HashMap h) throws RemoteException {
 
 		String MULTICAST_ADDRESS = "226.0.0.1";
@@ -95,10 +107,10 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 
 		try {
-			RMIServer s_main = new RMIServer();
-			RMIServer s_backup = new RMIServer();
-			Registry r = LocateRegistry.createRegistry(1099);
-			r.rebind("MainServer", s_main);
+			RMIServer s_main = new RMIServer(); //cria servidor principal
+			RMIServer s_backup = new RMIServer(); //cria servidor de backup
+			Registry r = LocateRegistry.createRegistry(1099); //cria um registo para se conectar
+			r.rebind("MainServer", s_main); //anexa o servidor principal ao registo criado
 			System.out.println("Server ready.");
 
 			ReceivePacket receivePacket = new ReceivePacket(serverNumbers,s_main.client);
@@ -127,7 +139,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
                 e.printStackTrace();
             }
 
-			while(true){
+			while(true){ //num loop, o backup server verifica o principal, se o backup assumir o registo, o principal verifica o backup
 				s_backup.remake(s_backup,s_main);
 				s_main.remake(s_main,s_backup);
 			}
@@ -140,6 +152,9 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 }
 
+/**
+ *
+ */
 class ReceivePacket extends Thread{
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 4321;
@@ -174,7 +189,10 @@ class ReceivePacket extends Thread{
         }
     }
 
-    class Worker implements Runnable{
+	/**
+	 *
+	 */
+	class Worker implements Runnable{
         private List<Integer> serverNumbers;
         private DatagramPacket packetIn;
         private ArrayList<Client> clients;
@@ -218,6 +236,9 @@ class ReceivePacket extends Thread{
     }
 }
 
+/**
+ *
+ */
 class SendPacket implements Runnable{
 	private List<Integer> serverNumbers;
 	private static String MULTICAST_ADDRESS = "226.0.0.1";

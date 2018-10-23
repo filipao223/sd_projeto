@@ -4,6 +4,9 @@ import java.util.*;
 import java.rmi.server.*;
 import java.io.*;
 
+/**
+ * Class that creates a client, and has the function that the client uses
+ */
 public class RMIClient extends UnicastRemoteObject implements Client {
 
     static String name = null; //Nome do cliente
@@ -12,6 +15,11 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         super();
     }
 
+    /**
+     * Callback Method that prints on the client the server response
+     * @param data
+     * @throws RemoteException
+     */
     public void print_on_client(Map<String, Object> data) throws RemoteException {
 
         /*Set set = h.entrySet();
@@ -57,11 +65,20 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         }
     }
 
+    /**
+     *
+     * @return
+     * @throws RemoteException
+     */
     public String getName() throws RemoteException{
         return name;
     }
 
 
+    /**
+     *
+     * @throws RemoteException
+     */
     public static void remake() throws RemoteException {
         long time = System.currentTimeMillis();
         while (System.currentTimeMillis() < time + 30000) { //tem de se tentar conectar durante 30 segundos
@@ -127,6 +144,14 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         }
     }
 
+    /**
+     *
+     * @param h
+     * @param c
+     * @param keyboardScanner
+     * @return
+     * @throws RemoteException
+     */
     private static HashMap<String, Object> getUserInput(Server h, Client c, Scanner keyboardScanner) throws RemoteException {
         boolean alreadyGotFeatureCode = false;
         HashMap<String, Object> data = new HashMap<>();
