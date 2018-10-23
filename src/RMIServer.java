@@ -61,8 +61,10 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	}
 
 	public void subscribe(String name,Client c) throws RemoteException {
-		client.add(c);
-		System.out.println("Subscribe " + name);
+		if(!client.contains(c)) {
+			client.add(c);
+			System.out.println("Subscribe " + name);
+		}
 	}
 
 

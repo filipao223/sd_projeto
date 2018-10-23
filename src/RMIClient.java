@@ -64,12 +64,12 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
     public static void remake() throws RemoteException {
         long time = System.currentTimeMillis();
-        while (System.currentTimeMillis() < time + 30000) {
+        while (System.currentTimeMillis() < time + 30000) { //tem de se tentar conectar durante 30 segundos
             try {
 
-                Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer");
+                Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer"); //procura server para conectar
 
-                RMIClient c = new RMIClient();
+                RMIClient c = new RMIClient(); // cria um novo cliente, para o servidor guardar
 
                 Scanner keyboardScanner = new Scanner(System.in);
 
@@ -85,7 +85,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                 } catch (NotBoundException e) {
                     System.out.println("A procura de conecao");
                 }
-            if(System.currentTimeMillis() >= time + 30000){
+            if(System.currentTimeMillis() >= time + 30000){ //no fim dos 30 segundos a coneção não é possível
                     System.out.println("Não existe coneção");
                     break;
                 }
@@ -96,9 +96,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         //Codes example
         try {
 
-            Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer");
+            Server h = (Server) LocateRegistry.getRegistry(1099).lookup("MainServer"); //procura server para conectar
 
-            RMIClient c = new RMIClient();
+            RMIClient c = new RMIClient(); // cria um novo cliente, para o servidor guardar
 
             Scanner keyboardScanner = new Scanner(System.in);
 
