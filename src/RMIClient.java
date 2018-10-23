@@ -6,7 +6,7 @@ import java.io.*;
 
 public class RMIClient extends UnicastRemoteObject implements Client {
 
-    static String name = null;
+    static String name = null; //Nome do cliente
 
     public RMIClient() throws RemoteException {
         super();

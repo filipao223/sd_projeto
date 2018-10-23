@@ -26,7 +26,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		super();
 	}
 
-	public static void remake(RMIServer server) throws RemoteException, InterruptedException {
+	public static void remake(RMIServer backup,RMIServer main) throws RemoteException, InterruptedException {
 		int vezes = 0;
 		while (true) {
 			Thread.sleep(5000);
@@ -40,7 +40,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 				System.out.println("Nenhum server");
 				vezes += 1;
 				if(vezes == 5){
-					r.rebind("MainServer", server);
+					r.rebind("MainServer", backup);
+					backup.client = main.client;
 					System.out.println("Server ready.");
 					vezes = 0;
 					break;
@@ -49,7 +50,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 				System.out.println("MainServer");
 				vezes += 1;
 				if(vezes == 5){
-					r.rebind("MainServer", server );
+					r.rebind("MainServer", backup);
+					backup.client = main.client;
 					System.out.println("Server ready.");
 					vezes = 0;
 					break;
@@ -124,8 +126,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
             }
 
 			while(true){
-				s_backup.remake(s_backup);
-				s_main.remake(s_main);
+				s_backup.remake(s_backup,s_main);
+				s_main.remake(s_main,s_backup);
 			}
         }catch (RemoteException re) {
 			System.out.println("Exception in RMIServer.main: " + re);
