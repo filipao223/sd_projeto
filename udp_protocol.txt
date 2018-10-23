@@ -2,7 +2,14 @@
 <-- RMI Server
 
 Exemplo de um datagrama
-[ feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+
+[ server | 2 ;  feature |  2  ;   username  |  flipao   ;   acao  |  renomear_musica_nr3 ]
+
+/*------Todos --> ------*/
+Todos os datagramas em direção ao servidor multicast têm este campo
+
+--> server : string (Depois cast para integer)
+    um numero de servidor
 
 /*------Todos------*/
 Todos os datagramas têm este campo
@@ -23,6 +30,26 @@ Todos os datagramas têm este campo
         download
         callback
 
+(internal) new server
+
+<-- new_server : int  (server number)
+
+/*Para garantir que os pedidos sao sempre processados, a lista com numeros de
+ servidor do gerador do numero de
+servidor é aumentada dinamicamente assim que novos sao ligados*/
+
+(internal) server down
+
+<-- server_down : int (server number)
+
+/*O oposto de new server, remove da lista o numero recebido */
+
+registo
+
+--> username : string
+--> password : string
+<-- resposta : callback
+
 login
 
 --> username : string
@@ -34,7 +61,39 @@ logout
 --> username : string
 <-- resposta : callback
 
-gerir
+gerir-add
+
+--> username : string
+--> action : string
+/*---Formato acao*/
+Usar valores em request (Request.ADD_ALBUM, Request.ADD_ARTIST)
+Cada valor separado por "_"
+1.album, artist
+2. Valores sao obrigatorios para a criaçao na base de dados
+-album: name
+-artist: name
+Exemplo:
+album_"nome do album"
+(usando os valores de Request em vez de strings:
+ 33_"nome do album")
+
+gerir-remove
+
+--> username : string
+--> action : string
+/*---Formato acao*/
+Usar valores em request (Request.REMOVE_ALBUM, Request.REMOVE_ARTIST)
+Cada valor separado por "_"
+1.album, artist
+2. Valores sao obrigatorios para a remoçao da base de dados
+-album: name
+-artist: name
+Exemplo:
+album_"nome do album"
+(usando os valores de Request em vez de strings:
+ 33_"nome do album")
+
+gerir-edit
 
 --> username : string
 --> action : string
@@ -43,30 +102,41 @@ Usar valores em Request (Request.EDIT_NAME, Request.EDIT_MUSIC, ...)
 Cada valor separada por "_"
 1. album, music, artist
 2.
--album: name, year, artist, description, genre, albums
+
+-album: name, year, artist, description, genre
 -music: name, album, artist, lyrics, year
--artist: name, albums, birth, description
-3. new value (string)
+-artist: name, birth, description
+3. name of artist/album/music
+4. new value (string)
 Exemplo:
-music_name_"nome de musica 4"
-(usando os valores de Request em vez de strings)
+music_name_"music1"_"nome de musica novo"
+(usando os valores de Request em vez de strings:
+ 16_18_"music1"_"nome de musica novo")
 /*---------------*/
 <-- resposta : callback
 
 pesquisa 
 
---> type : int (Valores em Request[Request.SEARCH_ALBUM, ...])
---> name : string
+--> user : string
+--> action : string
+/*---Formato acao*/
+1.Tipo de pesquisa - album, artist, music
+2.Parametros pesquisa:
+-album: name, artist, genre (pelo menos 1 destes)
+-music: name, artist, album (pelo menos 1)
+-artist: name
 <-- resposta : callback
 
-consulta album 
+consulta album
 
---> name : string
+--> username : string
+--> album : string
 <-- resposta : callback
 
 consulta artista 
 
---> name : string
+--> username : string
+--> artist : string
 <-- resposta : callback
 
 critica
@@ -101,7 +171,7 @@ notificao alteracao artista
 entrega notificacoes 
 
 <-- username : string
-<-- notificacoes : Array de string
+<-- notes : Array de string
 
 transferencia de musicas para o server
 
