@@ -315,6 +315,28 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
                         data.put("action", action);
                     }
+
+                    //=================================================DETALHES ALBUM========================================================================
+                    else if (readKeyboard.matches("60")){
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
+
+                        System.out.println("Album name?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("album", readKeyboard);
+                    }
+//=================================================DETALHES ARTISTA========================================================================
+                    else if (readKeyboard.matches("61")){
+                        System.out.println("Username?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("username", readKeyboard);
+
+                        System.out.println("Artist name?: ");
+                        readKeyboard = keyboardScanner.nextLine();
+                        data.put("artist", readKeyboard);
+                    }
+
                     h.receive(data);
                 }
                 } catch (ConnectException e) {
@@ -581,6 +603,28 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
                     data.put("action", action);
                 }
+
+                //=================================================DETALHES ALBUM========================================================================
+                else if (readKeyboard.matches("60")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+
+                    System.out.println("Album name?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("album", readKeyboard);
+                }
+//=================================================DETALHES ARTISTA========================================================================
+                else if (readKeyboard.matches("61")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+
+                    System.out.println("Artist name?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("artist", readKeyboard);
+                }
+
                 h.receive(data);
             }
         } catch (ConnectException e) {
