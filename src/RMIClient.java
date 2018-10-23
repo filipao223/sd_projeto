@@ -17,7 +17,8 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
     /**
      * Callback Method that prints on the client the server response
-     * @param data
+     * Works on a switch depending on the feature that the method receives has a argument
+     * @param data the map that contains the responses of the server
      * @throws RemoteException
      */
     public void print_on_client(Map<String, Object> data) throws RemoteException {
@@ -66,8 +67,8 @@ public class RMIClient extends UnicastRemoteObject implements Client {
     }
 
     /**
-     *
-     * @return
+     * Returns the name of the client
+     * @return the name of the client
      * @throws RemoteException
      */
     public String getName() throws RemoteException{
@@ -76,7 +77,11 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
 
     /**
-     *
+     * This function is active if the client cant connect to the RMI Server
+     * First it saves the current time, to compare in the while cicle, the cicle ends, if 30000 ms has passed
+     * <p>
+     * When in enters on the cicle, if tries to connect to the server, in the case that the connection failed
+     * the cicle continues, if it connects, it beggins the function to send a datagram to the RMI Server1
      * @throws RemoteException
      */
     public static void remake() throws RemoteException {
@@ -146,10 +151,10 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
     /**
      *
-     * @param h
-     * @param c
-     * @param keyboardScanner
-     * @return
+     * @param h The server that will be connected, and will send the datagram
+     * @param c The current client
+     * @param keyboardScanner The Scanner for the Keyboard
+     * @return the hashmap that will be sent to the RMI Server
      * @throws RemoteException
      */
     private static HashMap<String, Object> getUserInput(Server h, Client c, Scanner keyboardScanner) throws RemoteException {
