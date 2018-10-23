@@ -103,7 +103,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                     h.receive(data);
                 }
                 } catch (ConnectException e) {
-                    System.out.println("A procura de conecao");
+                        System.out.println("A procura de conecao");
                 } catch (NotBoundException e) {
                     System.out.println("A procura de conecao");
                 }
@@ -150,7 +150,11 @@ public class RMIClient extends UnicastRemoteObject implements Client {
     }
 
     /**
-     *
+     * First it checks if the feature that will be on the datagram is already decided
+     * <p>
+     * If it isnt the user has to put the feature off the operation that he wants to do
+     * If it is the user will put the details of the operation
+     * It collects all the information, put in on a hashmap, and return it
      * @param h The server that will be connected, and will send the datagram
      * @param c The current client
      * @param keyboardScanner The Scanner for the Keyboard

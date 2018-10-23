@@ -13,6 +13,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
+/**
+ * Class that will receive all the hashmaps, save the clients(using an ArrayList), start the servers,
+ * and send UDP datagram
+ */
 public class RMIServer extends UnicastRemoteObject implements Server {
 
 	public ArrayList<Client> client = new ArrayList<>(); //contem todos os clientes que vão estar ligados ao server
@@ -27,9 +31,11 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	}
 
 	/**
-	 *
-	 * @param backup
-	 * @param main
+	 * This function is the one the one responsible for the pokes that the secondary servers sends to the primary
+	 * It enters the while cicle, always using lookup to check the state of the main Server,if its not bound, or
+	 * it cant connect 5 times, it uses the rebind to promote de secondary to primary
+	 * @param backup The secondary server
+	 * @param main The primary server
 	 * @throws RemoteException
 	 * @throws InterruptedException
 	 */
@@ -67,6 +73,12 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 		}
 	}
 
+	/**
+	 * This functions add the Client to the ArrayList on the Server if it isnt there already
+	 * @param name Name of the Client
+	 * @param c ID of the Client
+	 * @throws RemoteException
+	 */
 	public void subscribe(String name,Client c) throws RemoteException {
 		if(!client.contains(c)) { //verifica se o arraylist de clients contem o cliente, se não, adiciona
 			client.add(c);
@@ -76,8 +88,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 
 	/**
-	 *
-	 * @param h
+	 * This functions receives a HashMap
+	 * @param h HashMap
 	 * @throws RemoteException
 	 */
 	public void receive(HashMap h) throws RemoteException {
@@ -153,7 +165,8 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 }
 
 /**
- *
+ * Class that will receive the packet from the server, and, hand it to a worker thread that will
+ * eventually send it to the MultiCast Server
  */
 class ReceivePacket extends Thread{
     private static String MULTICAST_ADDRESS = "226.0.0.1";
@@ -190,7 +203,7 @@ class ReceivePacket extends Thread{
     }
 
 	/**
-	 *
+	 * Class that receive the packet sent by the MultiCast Server and sends it to the correct client
 	 */
 	class Worker implements Runnable{
         private List<Integer> serverNumbers;
@@ -237,7 +250,9 @@ class ReceivePacket extends Thread{
 }
 
 /**
- *
+ * The class that is responsible for sending the packet to the MultiCast Server
+ * <p>
+ * It adds the index number of the server to the HashMap and then sends it to the MultiCast Server
  */
 class SendPacket implements Runnable{
 	private List<Integer> serverNumbers;
