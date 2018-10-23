@@ -177,8 +177,7 @@ transferencia de musicas para o server
 
 --> user : string   (user que pretende a musica)
 --> music : string  (nome da musica)
---> file : object   (musica)
-<-- resposta : callback
+<-- resposta : callback (contem endereço do servidor)
 
 partilha 
 
@@ -198,3 +197,7 @@ callback
 <-- username : string  (user que pediu)
 <-- answer : string
 <-- optional : object   (Em algumas features, como o login, será null, noutras terá alguma coisa, como uma musica p.ex)
+
+open tcp connection (returns address of server to upload music)
+
+<-- address : string

@@ -3,11 +3,8 @@
 import com.sun.org.apache.regexp.internal.RE;
 import com.sun.org.apache.xpath.internal.operations.Mult;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.UnknownHostException;
+import java.io.*;
+import java.net.*;
 import java.sql.*;
 import java.util.*;
 
@@ -19,6 +16,9 @@ public class RequestHandler implements Runnable {
     private static int PORT = 4321;
     private static int PORT_DBCONNECTION = 7000;
     private static int PORT_DB_ANSWER = 7001;
+    private static int PORT_TCP = 7002;
+
+    private static int TCP_LISTEN_TIMEOUT = 5000; //5 seconds
 
     private DatagramPacket clientPacket;
     private Map<String, Object> data = null;
@@ -294,6 +294,64 @@ public class RequestHandler implements Runnable {
                             String results = (String) databaseReply(user, code);
                             if (results == null) sendCallback(user, "No results", null);
                             else sendCallback(user, "Results found", results);
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
+            //---------------------------------------------------------------------------------------------
+                    case Request.UPLOAD:
+                        //User wants to upload a file
+                        String user = (String) data.get("username");
+                        String musicName = (String) data.get("music");
+                        String clientIp = (String) data.get("client");
+
+                        //Get this machine's server
+                        InetAddress ip = InetAddress.getLocalHost();
+                        String ipString = ip.getHostAddress();
+                        System.out.println("This machine address: " + ipString);
+
+                        MulticastSocket socket = new MulticastSocket(PORT);
+                        Map<String, Object> data = new HashMap<>();
+
+                        data.put("feature", String.valueOf(Request.OPEN_TCP));
+                        data.put("username", user);
+                        data.put("address", ipString);
+
+                        byte[] buffer = s.serialize(data);
+
+                        InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                        socket.joinGroup(group);
+                        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                        socket.send(packet);
+
+                        //Wait for user to connect, using a timeout
+                        try{
+                            ServerSocket serverSocket = new ServerSocket(PORT_TCP);
+                            serverSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+
+                            while (true){
+                                Socket client = serverSocket.accept();
+
+                                if (client.getLocalAddress().getHostAddress().matches(clientIp)){ //If it's the correct client connecting
+                                    //Receive data
+                                    ObjectInputStream inFromClient =
+                                            new ObjectInputStream(client.getInputStream());
+                                    Object file = null;
+                                    try{
+                                        file = inFromClient.readObject();
+                                    } catch (EOFException e){
+                                        System.out.println("Finished reading object");
+                                    }
+
+                                    System.out.println("User uploaded: " + file);
+                                    sendCallback(user, "File uploaded", null);
+                                    client.close();
+                                    serverSocket.close();
+                                    break;
+                                }
+                            }
+                        } catch (SocketTimeoutException e){
+                            System.out.println("Timeout listening to user");
+                            sendCallback(user, "Upload timed out", null);
                         } catch (Exception e){
                             e.printStackTrace();
                         }

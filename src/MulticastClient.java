@@ -1,6 +1,5 @@
-import java.net.MulticastSocket;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
+import java.io.DataOutputStream;
+import java.net.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -60,8 +59,9 @@ public class MulticastClient extends Thread {
 }
 
 class MulticastUser extends Thread {
-    private String MULTICAST_ADDRESS = "226.0.0.1";
-    private int PORT = 4321;
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
+    private static int PORT = 4321;
+    private static int PORT_TCP = 7002;
     private List<Integer> serverNumbers;
 
     public MulticastUser(List<Integer> list) {
@@ -401,6 +401,20 @@ class MulticastUser extends Thread {
                     readKeyboard = keyboardScanner.nextLine();
                     data.put("artist", readKeyboard);
                 }
+//=================================================UPLOAD MUSICA========================================================================
+                else if (readKeyboard.matches("10")){
+                    System.out.println("Username?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("username", readKeyboard);
+
+                    System.out.println("Music name?: ");
+                    readKeyboard = keyboardScanner.nextLine();
+                    data.put("music", readKeyboard);
+
+                    InetAddress ip = InetAddress.getLocalHost();
+                    String address = ip.getHostAddress();
+                    data.put("client", address);
+                }
                 buffer = s.serialize(data);
 
                 group = InetAddress.getByName(MULTICAST_ADDRESS);
@@ -416,7 +430,8 @@ class MulticastUser extends Thread {
 }
 
 class DecodePacket implements Runnable{
-
+    private static int PORT_TCP = 7002;
+    private static int TCP_LISTEN_TIMEOUT = 5000; //5 seconds
     private static List<Integer> serverNumbers;
     private DatagramPacket packet;
     private Serializer s = new Serializer();
@@ -478,6 +493,28 @@ class DecodePacket implements Runnable{
             else if(((String)data.get("feature")).matches("31")){
                 System.out.println("-----------Server down (" + data.get("server_down") + ")------------");
                 if (!serverNumbers.isEmpty()) serverNumbers.remove((int)data.get("server_down")); //Remove o numero do servidor da lista da classe
+            }
+
+            else if (((String)data.get("feature")).matches("62")){
+                String ip = (String) data.get("address");
+                if (ip != null){
+                    System.out.println("------------Upload allowed on address " + ip);
+                    //Open a TCP connection
+                    try{
+                        Socket tcpSocket = new Socket(ip, PORT_TCP);
+                        tcpSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+
+                        String response = "Testing";
+                        DataOutputStream outToServer = new DataOutputStream(tcpSocket.getOutputStream());
+                        outToServer.writeBytes(response);
+
+                        System.out.println("Wrote bytes to server");
+                        tcpSocket.close();
+
+                    } catch (SocketTimeoutException e){
+                        System.out.println("Client side upload timed out");
+                    }
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
