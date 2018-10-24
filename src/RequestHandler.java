@@ -1,8 +1,5 @@
 
 
-import com.sun.org.apache.regexp.internal.RE;
-import com.sun.org.apache.xpath.internal.operations.Mult;
-
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
@@ -132,8 +129,8 @@ public class RequestHandler implements Runnable {
 
                             int rc = registerHandler(user, pass);
 
-                            if (rc==NO_USER_FOUND || rc==-1) sendCallback(user, "User already exists", null);
-                            else sendCallback(user, "User registered", null);
+                            if (rc==NO_USER_FOUND || rc==-1) sendCallback(user, "User already exists", null, code);
+                            else sendCallback(user, "User registered", null, code);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -151,11 +148,11 @@ public class RequestHandler implements Runnable {
                             int rc = loginHandler(user, password, code);
 
                             if (code == Request.LOGIN){
-                                if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null);
-                                else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                                else if (rc==-1) sendCallback(user, "Wrong user/password", null);
+                                if (rc==ALREADY_LOGIN) sendCallback(user, "User already logged in", null, code);
+                                else if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                                else if (rc==-1) sendCallback(user, "Wrong user/password", null, code);
                                 else{
-                                    sendCallback(user, "User logged in", null);
+                                    sendCallback(user, "User logged in", null, code);
                                     System.out.println("Checking if notes");
                                     //Check if there are notifications
                                     String notes = getAllNotes(user);
@@ -169,8 +166,8 @@ public class RequestHandler implements Runnable {
                                 }
                             }
                             else{
-                                if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                                else sendCallback(user, "User logged out", null);
+                                if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                                else sendCallback(user, "User logged out", null, code);
                             }
 
                         } catch ( Exception e) {
@@ -187,20 +184,20 @@ public class RequestHandler implements Runnable {
 
                             int rc = checkLoginState(editor);
                             System.out.println("Passed loginstate");
-                            if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null);
-                            else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null);
-                            else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null);
+                            if(rc==NO_USER_FOUND) sendCallback(editor, "User not found", null, code);
+                            else if(rc==NO_LOGIN) sendCallback(editor, "User is not logged in", null, code);
+                            else if(rc==TIMEOUT) sendCallback(editor, "Session login timed out", null, code);
                             else{
                                 //Check if is editor
                                 rc = checkIfEditor(editor);
-                                if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null);
+                                if (rc==NOT_EDITOR) sendCallback(editor, "User is not editor", null, code);
                                 else{
                                     //Make editor
                                     rc = makeEditorHandler(editor, newEditor);
-                                    if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null);
-                                    else if(rc==-1) sendCallback(editor, "Error making new editor", null);
+                                    if (rc==NO_USER_FOUND) sendCallback(editor, "New editor not found", null, code);
+                                    else if(rc==-1) sendCallback(editor, "Error making new editor", null, code);
                                     else{
-                                        sendCallback(editor, "Made new editor", null);
+                                        sendCallback(editor, "Made new editor", null, code);
                                         sendSingleNotification(newEditor, editor, null, Request.NOTE_EDITOR);
                                     }
                                 }
@@ -218,23 +215,23 @@ public class RequestHandler implements Runnable {
                             String action = (String) data.get("action");
 
                             int rc = checkLoginState(user);
-                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
-                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
+                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null, code);
+                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null, code);
                             else{
                                 //Check if is editor
                                 rc = checkIfEditor(user);
-                                if (rc==NOT_EDITOR) sendCallback(user, "User is not editor", null);
-                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
+                                if (rc==NOT_EDITOR) sendCallback(user, "User is not editor", null, code);
+                                else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null, code);
                                 else{
                                     //Make the edit
                                     rc = managerHandler(user, action);
-                                    if (rc==-1) sendCallback(user, "Field not edited", null);
-                                    else if (rc==-2) sendCallback(user, "Item not added", null);
-                                    else if (rc==-3) sendCallback(user, "Item not removed", null);
-                                    else if (rc==1) sendCallback(user, "Item added", null);
-                                    else if (rc==2) sendCallback(user, "Item removed", null);
-                                    else sendCallback(user, "Field edited", null);
+                                    if (rc==-1) sendCallback(user, "Field not edited", null, code);
+                                    else if (rc==-2) sendCallback(user, "Item not added", null, code);
+                                    else if (rc==-3) sendCallback(user, "Item not removed", null, code);
+                                    else if (rc==1) sendCallback(user, "Item added", null, code);
+                                    else if (rc==2) sendCallback(user, "Item removed", null, code);
+                                    else sendCallback(user, "Field edited", null, code);
                                 }
                             }
                         } catch (IOException e) {
@@ -248,15 +245,15 @@ public class RequestHandler implements Runnable {
                             String action = (String) data.get("action");
 
                             int rc = checkLoginState(user);
-                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null);
-                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null);
-                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null);
+                            if(rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                            else if (rc==DB_EXCEPTION) sendCallback(user, "Database error", null, code);
+                            else if(rc==NO_LOGIN) sendCallback(user, "User is not logged in", null, code);
+                            else if(rc==TIMEOUT) sendCallback(user, "Session login timed out", null, code);
                             else{
                                 //Search
                                 String results = searchHandler(user, action);
-                                if (results == null) sendCallback(user, "No results found", null);
-                                else sendCallback(user, "Found results", results);
+                                if (results == null) sendCallback(user, "No results found", null, code);
+                                else sendCallback(user, "Found results", results, code);
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -292,8 +289,8 @@ public class RequestHandler implements Runnable {
                             databaseAccess(user, sql, true, columns, code);
                             //Wait for reply
                             String results = (String) databaseReply(user, code);
-                            if (results == null) sendCallback(user, "No results", null);
-                            else sendCallback(user, "Results found", results);
+                            if (results == null) sendCallback(user, "No results", null, code);
+                            else sendCallback(user, "Results found", results, code);
                         } catch (Exception e){
                             e.printStackTrace();
                         }
@@ -307,8 +304,8 @@ public class RequestHandler implements Runnable {
                         //First check if user is logged in
                         int rc = checkLoginState(user);
 
-                        if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
-                        else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null);
+                        if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                        else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null, code);
                         else{
                             //Now check if this music exists in database
                             // TODO change request code
@@ -408,7 +405,7 @@ public class RequestHandler implements Runnable {
                                         FileOutputStream outFile = new FileOutputStream("music/" + musicName + ".txt");
                                         if (musicFile == null){
                                             System.out.println("Music file is null");
-                                            sendCallback(user, "Error uploading file", null);
+                                            sendCallback(user, "Error uploading file", null, code);
                                         }
                                         else{
                                             outFile.write(musicFile.fileContent);
@@ -426,12 +423,12 @@ public class RequestHandler implements Runnable {
 
                                         if (rc==-1){
                                             System.out.println("Error updating file url in database");
-                                            sendCallback(user, "File not uploaded", null);
+                                            sendCallback(user, "File not uploaded", null, code);
                                             File file1 = new File("music/" + musicName + ".txt");
                                             Files.deleteIfExists(file1.toPath());
                                         }
                                         else{
-                                            sendCallback(user, "File uploaded", null);
+                                            sendCallback(user, "File uploaded", null, code);
                                         }
 
                                         break;
@@ -439,7 +436,7 @@ public class RequestHandler implements Runnable {
                                 }
                             } catch (SocketTimeoutException e){
                                 System.out.println("Timeout listening to user");
-                                sendCallback(user, "Upload timed out", null);
+                                sendCallback(user, "Upload timed out", null, code);
                             } catch (Exception e){
                                 e.printStackTrace();
                             }
@@ -1170,9 +1167,10 @@ public class RequestHandler implements Runnable {
      * @param user Name of the user that sent the request
      * @param resposta Description of the callback
      * @param optional Optional object
+     * @param code
      * @throws IOException
      */
-    private void sendCallback(String user, String resposta, Object optional) throws IOException {
+    private void sendCallback(String user, String resposta, Object optional, int code) throws IOException {
         // TODO send back the original feature
         //Create multicast socket
         MulticastSocket socket = new MulticastSocket();
@@ -1180,6 +1178,7 @@ public class RequestHandler implements Runnable {
         //Create data map
         Map<String, Object> callback = new HashMap<>();
         callback.put("feature", String.valueOf(Request.CALLBACK));
+        callback.put("feature_requested", String.valueOf(code));
         callback.put("username", user);
         callback.put("answer", resposta);
         callback.put("optional", optional);
