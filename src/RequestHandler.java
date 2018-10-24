@@ -5,6 +5,7 @@ import com.sun.org.apache.xpath.internal.operations.Mult;
 
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.sql.*;
 import java.util.*;
 
@@ -47,6 +48,8 @@ public class RequestHandler implements Runnable {
     private static String DB_FIELD_DESCRIPTION = "description";
     private static String DB_FIELD_GENRE       = "genre"      ;
     private static String DB_FIELD_LYRICS      = "lyrics"     ;
+
+    // TODO Update javadocs
 
 
     /**
@@ -117,11 +120,8 @@ public class RequestHandler implements Runnable {
                 }
                 //Check which feature user wants to do
                 int code = Integer.parseInt((String)data.get("feature"));
-                // TODO Consultar detalhes de álbum (incluindo músicas e críticas)
                 // TODO Escrever crítica sobre um álbum (com pontuação)
-                // TODO Consultar detalhes de artista (e.g., discografia, biografia)
                 // TODO Notificação imediata de re-edição de descrição de álbum (online users)
-                // TODO Upload de ficheiro para associar a uma música existente
                 // TODO Partilhar um ficheiro musical e permitir o respetivo download
                 switch(code){
             //-------------------------------------------------------------------------------
@@ -304,56 +304,145 @@ public class RequestHandler implements Runnable {
                         String musicName = (String) data.get("music");
                         String clientIp = (String) data.get("client");
 
-                        //Get this machine's server
-                        InetAddress ip = InetAddress.getLocalHost();
-                        String ipString = ip.getHostAddress();
-                        System.out.println("This machine address: " + ipString);
+                        //First check if user is logged in
+                        int rc = checkLoginState(user);
 
-                        MulticastSocket socket = new MulticastSocket(PORT);
-                        Map<String, Object> data = new HashMap<>();
+                        if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null);
+                        else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null);
+                        else{
+                            //Now check if this music exists in database
+                            // TODO change request code
+                            // TODO check if music already exists in the server
+                            String sql = "SELECT name, uri FROM Music WHERE name=\"" + musicName + "\";";
+                            databaseAccess(user, sql, true, "name", Request.UPLOAD_MUSIC);
+                            String results = (String) databaseReply(user, Request.UPLOAD_MUSIC);
 
-                        data.put("feature", String.valueOf(Request.OPEN_TCP));
-                        data.put("username", user);
-                        data.put("address", ipString);
+                            MulticastSocket socket = new MulticastSocket(PORT);
 
-                        byte[] buffer = s.serialize(data);
+                            if (results != null){
+                                //Split string, format: 1_name_music4
+                                String[] tokens = results.split("_");
+                                if (tokens.length < 2){
+                                    System.out.println("Music not in database yet, connection refused");
+                                    //Send null ip to user, not allowed
+                                    data.put("feature", String.valueOf(Request.OPEN_TCP));
+                                    data.put("username", user);
+                                    data.put("address", null);
+                                    data.put("musicName", musicName);
 
-                        InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-                        socket.joinGroup(group);
-                        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
-                        socket.send(packet);
+                                    byte[] buffer = s.serialize(data);
 
-                        //Wait for user to connect, using a timeout
-                        try{
-                            ServerSocket serverSocket = new ServerSocket(PORT_TCP);
-                            serverSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+                                    InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                                    socket.joinGroup(group);
+                                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                                    socket.send(packet);
+                                    socket.close();
 
-                            while (true){
-                                Socket client = serverSocket.accept();
-
-                                if (client.getLocalAddress().getHostAddress().matches(clientIp)){ //If it's the correct client connecting
-                                    //Receive data
-                                    ObjectInputStream inFromClient =
-                                            new ObjectInputStream(client.getInputStream());
-                                    Object file = null;
-                                    try{
-                                        file = inFromClient.readObject();
-                                    } catch (EOFException e){
-                                        System.out.println("Finished reading object");
-                                    }
-
-                                    System.out.println("User uploaded: " + file);
-                                    sendCallback(user, "File uploaded", null);
-                                    client.close();
-                                    serverSocket.close();
                                     break;
                                 }
+                                else{
+                                    System.out.println("Music exists, connection allowed");
+                                }
                             }
-                        } catch (SocketTimeoutException e){
-                            System.out.println("Timeout listening to user");
-                            sendCallback(user, "Upload timed out", null);
-                        } catch (Exception e){
-                            e.printStackTrace();
+                            else{
+                                System.out.println("Error checking database");
+                                //Send null ip to user, not allowed
+                                data.put("feature", String.valueOf(Request.OPEN_TCP));
+                                data.put("username", user);
+                                data.put("address", null);
+                                data.put("musicName", musicName);
+
+                                byte[] buffer = s.serialize(data);
+
+                                InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                                socket.joinGroup(group);
+                                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                                socket.send(packet);
+                                socket.close();
+
+                                break;
+                            }
+
+                            //Get this machine's server
+                            InetAddress ip = InetAddress.getLocalHost();
+                            String ipString = ip.getHostAddress();
+                            System.out.println("This machine address: " + ipString);
+
+                            Map<String, Object> data = new HashMap<>();
+
+                            data.put("feature", String.valueOf(Request.OPEN_TCP));
+                            data.put("username", user);
+                            data.put("address", ipString);
+                            data.put("musicName", musicName);
+
+                            byte[] buffer = s.serialize(data);
+
+                            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                            socket.joinGroup(group);
+                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                            socket.send(packet);
+
+                            //Wait for user to connect, using a timeout
+                            try{
+                                ServerSocket serverSocket = new ServerSocket(PORT_TCP);
+                                serverSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+
+                                while (true){
+                                    Socket client = serverSocket.accept();
+
+                                    if (client.getLocalAddress().getHostAddress().matches(clientIp)){ //If it's the correct client connecting
+                                        //Receive data
+                                        ObjectInputStream inFromClient =
+                                                new ObjectInputStream(client.getInputStream());
+                                        Object file = null;
+                                        try{
+                                            file = inFromClient.readObject();
+                                        } catch (EOFException e){
+                                            System.out.println("Finished reading object");
+                                        }
+
+                                        System.out.println("User uploaded: " + file);
+
+                                        //Convert byte array back to a file
+                                        MusicFile musicFile = (MusicFile) file;
+                                        FileOutputStream outFile = new FileOutputStream("music/" + musicName + ".txt");
+                                        if (musicFile == null){
+                                            System.out.println("Music file is null");
+                                            sendCallback(user, "Error uploading file", null);
+                                        }
+                                        else{
+                                            outFile.write(musicFile.fileContent);
+                                        }
+
+                                        outFile.close();
+
+                                        client.close();
+                                        serverSocket.close();
+
+                                        //Now add the file's location to the database
+                                        sql = "UPDATE Music SET uri=\"music/" + musicName + ".txt\" WHERE name=\"" + musicName + "\"";
+                                        databaseAccess(user, sql, false, "", Request.UPLOAD_MUSIC);
+                                        rc = Integer.parseInt((String)databaseReply(user, Request.UPLOAD_MUSIC));
+
+                                        if (rc==-1){
+                                            System.out.println("Error updating file url in database");
+                                            sendCallback(user, "File not uploaded", null);
+                                            File file1 = new File("music/" + musicName + ".txt");
+                                            Files.deleteIfExists(file1.toPath());
+                                        }
+                                        else{
+                                            sendCallback(user, "File uploaded", null);
+                                        }
+
+                                        break;
+                                    }
+                                }
+                            } catch (SocketTimeoutException e){
+                                System.out.println("Timeout listening to user");
+                                sendCallback(user, "Upload timed out", null);
+                            } catch (Exception e){
+                                e.printStackTrace();
+                            }
                         }
                 }
             }
@@ -1084,6 +1173,7 @@ public class RequestHandler implements Runnable {
      * @throws IOException
      */
     private void sendCallback(String user, String resposta, Object optional) throws IOException {
+        // TODO send back the original feature
         //Create multicast socket
         MulticastSocket socket = new MulticastSocket();
 

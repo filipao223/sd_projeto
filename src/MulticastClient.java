@@ -1,7 +1,6 @@
-import java.io.DataOutputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.*;
-import java.io.IOException;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -500,21 +499,38 @@ class DecodePacket implements Runnable{
                 String ip = (String) data.get("address");
                 if (ip != null){
                     System.out.println("------------Upload allowed on address " + ip);
+                    String musicName = (String) data.get("musicName");
                     //Open a TCP connection
                     try{
                         Socket tcpSocket = new Socket(ip, PORT_TCP);
                         tcpSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
 
-                        String response = "Testing";
-                        ObjectOutputStream outToServer = new ObjectOutputStream(tcpSocket.getOutputStream());
-                        outToServer.writeBytes(response);
+                        File file = new File("newmusic/" + musicName + ".txt");
+                        if (file != null){
+                            ObjectOutputStream out = new ObjectOutputStream(tcpSocket.getOutputStream());
 
-                        System.out.println("Wrote bytes to server");
-                        tcpSocket.close();
+                            //Convert music file to byte array
+                            byte[] fileContent = Files.readAllBytes(file.toPath());
+                            MusicFile music = new MusicFile(fileContent);
+
+                            out.writeObject(music);
+
+                            out.close();
+                            tcpSocket.close();
+                            System.out.println("Uploaded to server");
+                        }
+                        else{
+                            System.out.println("File not found");
+                        }
 
                     } catch (SocketTimeoutException e){
                         System.out.println("Client side upload timed out");
+                    } catch (IOException e){
+                        e.printStackTrace();
                     }
+                }
+                else{
+                    System.out.println("Connection refused");
                 }
             }
         } catch (IOException e) {
