@@ -1,4 +1,5 @@
 import java.io.DataOutputStream;
+import java.io.ObjectOutputStream;
 import java.net.*;
 import java.io.IOException;
 import java.util.*;
@@ -505,7 +506,7 @@ class DecodePacket implements Runnable{
                         tcpSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
 
                         String response = "Testing";
-                        DataOutputStream outToServer = new DataOutputStream(tcpSocket.getOutputStream());
+                        ObjectOutputStream outToServer = new ObjectOutputStream(tcpSocket.getOutputStream());
                         outToServer.writeBytes(response);
 
                         System.out.println("Wrote bytes to server");

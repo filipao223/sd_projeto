@@ -508,16 +508,11 @@ public class RequestHandler implements Runnable {
      * @param code the Request code associated with edit type, if an edit was made
      */
     private void sendSingleNotification(String targetUser, String user, String edit, int code) {
-        /*try{
-            connect();
-            Statement statement = connection.createStatement();
-
+        try{
             //Check if the user is online
             int rc = checkLoginState(targetUser);
-            connect();
 
             if (rc==NO_USER_FOUND){
-                connection.close();
                 return;
             }
             else if (rc==NO_LOGIN){
@@ -548,15 +543,14 @@ public class RequestHandler implements Runnable {
                 }
 
                 //Update value in database
-                rc = statement.executeUpdate("UPDATE Users SET notes=\""
-                        + all_notes + "\" WHERE name=\"" + targetUser + "\";");
+                String sql = "UPDATE Users SET notes=\""
+                        + all_notes + "\" WHERE name=\"" + targetUser + "\";";
+                //Request database access
+                databaseAccess(user, sql, false, "", Request.NOTE_EDITOR);
+                rc = Integer.parseInt((String) databaseReply(user, Request.NOTE_EDITOR));
 
                 if (rc==-1) System.out.println("Error saving notifications");
                 else System.out.println("Saved notifications of user: " + targetUser);
-            }
-            else if (rc==DB_EXCEPTION){
-                connection.close();
-                System.out.println("Error sending notification");
             }
             else{
                 //User is logged in
@@ -577,14 +571,11 @@ public class RequestHandler implements Runnable {
                 socket.send(packet);
             }
 
-        } catch (SQLException e) {
-            System.out.println("ERROR SENDING NOTIFICATION");
-            e.printStackTrace();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
+        }
     }
 
     /**
