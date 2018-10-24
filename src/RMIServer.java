@@ -223,10 +223,12 @@ class ReceivePacket extends Thread{
 				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
 
 
-				if (data.get("feature_requested").equals(7)){
-					for(Client c: clients){
-						if(c.getName().matches((String) data.get("username"))){
-							c.print_on_client(data);
+				if (data.get("feature_requested") != null) {
+					if (data.get("feature_requested").equals(7) && data.get("feature_requested") != null) {
+						for (Client c : clients) {
+							if (c.getName().matches((String) data.get("username"))) {
+								c.print_on_client(data);
+							}
 						}
 					}
 				}
