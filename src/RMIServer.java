@@ -80,6 +80,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	 * @throws RemoteException
 	 */
 	public void subscribe(String name,Client c) throws RemoteException {
+		System.out.println(c);
 		if(!client.contains(c)) { //verifica se o arraylist de clients contem o cliente, se não, adiciona
 			client.add(c);
 			System.out.println("Subscribe " + name);
@@ -221,6 +222,14 @@ class ReceivePacket extends Thread{
 			try{
 				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
 
+
+				if (data.get("feature_requested").equals(7)){
+					for(Client c: clients){
+						if(c.getName().matches((String) data.get("username"))){
+							c.print_on_client(data);
+						}
+					}
+				}
 				for(Client c : clients){
 					if( c.getName().matches((String) data.get("username"))){
 						c.print_on_client(data);
