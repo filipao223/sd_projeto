@@ -1,3 +1,4 @@
+import java.net.InetAddress;
 import java.rmi.*;
 import java.rmi.registry.LocateRegistry;
 import java.util.*;
@@ -103,9 +104,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                     h.receive(data);
                 }
                 } catch (ConnectException e) {
-                        System.out.println("A procura de conecao");
                 } catch (NotBoundException e) {
-                    System.out.println("A procura de conecao");
                 }
             if(System.currentTimeMillis() >= time + 30000){ //no fim dos 30 segundos a coneção não é possível
                     System.out.println("Não existe coneção");
@@ -422,6 +421,24 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.println("Artist name?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("artist", readKeyboard);
+        }
+        else if (readKeyboard.matches("10")){
+            System.out.println("Username?: ");
+            readKeyboard = keyboardScanner.nextLine();
+            data.put("username", readKeyboard);
+
+            System.out.println("Music name?: ");
+            readKeyboard = keyboardScanner.nextLine();
+            data.put("music", readKeyboard);
+
+            InetAddress ip = null;
+            try {
+                ip = InetAddress.getLocalHost();
+            } catch (java.net.UnknownHostException e) {
+                e.printStackTrace();
+            }
+            String address = ip.getHostAddress();
+            data.put("client", address);
         }
         return data;
     }

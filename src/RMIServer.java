@@ -45,12 +45,9 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 			Thread.sleep(5000);
 			Registry r = LocateRegistry.getRegistry(1099); // busca o registo do port 1099
 			try {
-				System.out.println("À procura");
 				r.lookup("MainServer"); // verifica se o port já contem o MainServer
 			}catch (ExportException e){
-				System.out.println("Já existe um");
 			} catch (NotBoundException e) { // se não contem testa 5 vezes e depois o servidor secundario assume o port
-				System.out.println("Nenhum server");
 				vezes += 1;
 				if(vezes == 5){
 					r.rebind("MainServer", backup);
@@ -223,15 +220,15 @@ class ReceivePacket extends Thread{
 				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
 
 
-				if (data.get("feature_requested") != null) {
-					if (data.get("feature_requested").equals(7) && data.get("feature_requested") != null) {
+				/*if (data.get("feature_requested") != null) {
+					if (data.get("feature_requested").equals(7)) {
 						for (Client c : clients) {
 							if (c.getName().matches((String) data.get("username"))) {
 								c.print_on_client(data);
 							}
 						}
 					}
-				}
+				}*/
 				for(Client c : clients){
 					if( c.getName().matches((String) data.get("username"))){
 						c.print_on_client(data);
