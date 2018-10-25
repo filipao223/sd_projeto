@@ -1,4 +1,7 @@
 import java.net.InetAddress;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.file.Files;
 import java.rmi.*;
 import java.rmi.registry.LocateRegistry;
 import java.util.*;
@@ -18,7 +21,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
 
     /**
      * Callback Method that prints on the client the server response
-     * Works on a switch depending on the feature that the method receives has a argument
+     * Works on a switch depending on the feature that the method receives as a argument
      * @param data the map that contains the responses of the server
      * @throws RemoteException
      */
@@ -31,6 +34,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.print("key is: " + mentry.getKey() + " & Value is: ");
             System.out.println(mentry.getValue());
         }*/
+
+        int PORT_TCP = 7002;
+        int TCP_LISTEN_TIMEOUT = 5000;
 
 
 //============================================NNEW=DO TIPO CALLBACK=============================================================
@@ -64,6 +70,44 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                 System.out.println(note);
             }
             System.out.println("-----------Done");
+        }
+        else if (((String)data.get("feature")).matches("62")){
+            String ip = (String) data.get("address");
+            if (ip != null){
+                System.out.println("------------Upload allowed on address " + ip);
+                String musicName = (String) data.get("musicName");
+                //Open a TCP connection
+                try{
+                    Socket tcpSocket = new Socket(ip, PORT_TCP);
+                    tcpSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+
+                    File file = new File("newmusic/" + musicName + ".txt");
+                    if (file != null){
+                        ObjectOutputStream out = new ObjectOutputStream(tcpSocket.getOutputStream());
+
+                        //Convert music file to byte array
+                        byte[] fileContent = Files.readAllBytes(file.toPath());
+                        MusicFile music = new MusicFile(fileContent);
+
+                        out.writeObject(music);
+
+                        out.close();
+                        tcpSocket.close();
+                        System.out.println("Uploaded to server");
+                    }
+                    else{
+                        System.out.println("File not found");
+                    }
+
+                } catch (SocketTimeoutException e){
+                    System.out.println("Client side upload timed out");
+                } catch (IOException e){
+                    e.printStackTrace();
+                }
+            }
+            else{
+                System.out.println("Connection refused");
+            }
         }
     }
 
