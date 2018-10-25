@@ -70,4 +70,7 @@ public class Request {
     protected static final int ATTRIBUTE_EDIT    = 57; //Internal use only
     protected static final int ADD_ITEM          = 58; //Internal use only
     protected static final int REMOVE_ITEM       = 59; //Internal use only
+    protected static final int STORAGE_ACCESS    = 63;
+    protected static final int STORAGE_IP        = 64;
+    protected static final int STORAGE_ANSWER    = 65;
 }
