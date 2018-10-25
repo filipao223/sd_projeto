@@ -1,4 +1,7 @@
+import org.omg.CORBA.TIMEOUT;
+
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.*;
 import java.sql.*;
 import java.util.*;
@@ -10,6 +13,7 @@ public class DBConnection extends Thread {
     private static List<Integer> serverNumbers;
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private final int PORT = 7000;
+    private static int PORT_STORAGE = 7003;
     private Serializer serializer = new Serializer();
 
     public static void main(String args[]){
@@ -24,20 +28,21 @@ public class DBConnection extends Thread {
             MulticastSocket socket = null;
 
             serverNumbers = new ArrayList<>();
-            serverNumbers.add(1); serverNumbers.add(2); serverNumbers.add(0);
+            serverNumbers.addAll(Arrays.asList(0,1,2,3,4,5,6,7,8,9,10));
             ExecutorService executor = Executors.newFixedThreadPool(3);
 
             socket = new MulticastSocket(PORT);
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             socket.joinGroup(group);
             while(true){
-                byte[] buffer = new byte[2048];
+                byte[] buffer = new byte[8192];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
                 try{
                     //Check if feature code is REQUEST_NUMBER
                     Map<String, Object> dataIn = (Map<String, Object>) serializer.deserialize(packet.getData());
+                    System.out.println("Received: " + Integer.parseInt((String)dataIn.get("feature")));
                     if (Integer.parseInt((String)dataIn.get("feature")) == Request.REQUEST_NUMBER){ //Assign a number
                         System.out.println("New server");
                         executor.submit(new NumberAssigner(packet, serverNumbers, connection, serverNumbers.size()));
@@ -48,6 +53,12 @@ public class DBConnection extends Thread {
                                 (String)dataIn.get("columns"),(int)dataIn.get("server"), (int)dataIn.get("feature_requested"));
                         executor.submit(task);
                     }
+                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.STORAGE_ACCESS){
+                        System.out.println("Storage access requested");
+                        //Send ip of this machine back
+                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"));
+                        executor.submit(task);
+                    }
 
                 } catch (Exception e){
                     e.printStackTrace();
@@ -56,6 +67,60 @@ public class DBConnection extends Thread {
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+}
+
+class StorageHandler implements Runnable{
+    private String fileName;
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
+    private static int PORT_STORAGE = 7003;
+    private int serverNumber;
+    private static Serializer s = new Serializer();
+    private static int TIMEOUT = 5000; //5 seconds
+
+    StorageHandler(String fileName, int serverNumber){
+        this.fileName = fileName;
+        this.serverNumber = serverNumber;
+    }
+
+    @Override
+    public void run() {
+        try{
+            MulticastSocket storage = new MulticastSocket(PORT_STORAGE);
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            storage.joinGroup(group);
+
+            InetAddress address = InetAddress.getLocalHost();
+
+            Map<String, Object> dataOut = new HashMap<>();
+
+            dataOut.put("serverNumber", serverNumber);
+            dataOut.put("feature", String.valueOf(Request.STORAGE_IP));
+            dataOut.put("ip", address.getHostAddress());
+
+            byte[] buffer = s.serialize(dataOut);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_STORAGE);
+
+            storage.send(packet);
+            storage.close();
+
+            //Await a TCP connection from the RequestHandler
+            ServerSocket server = new ServerSocket(PORT_STORAGE);
+            server.setSoTimeout(TIMEOUT);
+            while (true){
+                server.accept();
+                System.out.println("Accepted connection from RequestHandler");
+                break;
+            }
+
+            server.close();
+
+        } catch (IOException e) {
+            if (e instanceof SocketTimeoutException){
+                System.out.println("Connection timed out");
+            }
+            else e.printStackTrace();
         }
     }
 }

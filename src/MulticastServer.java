@@ -1,9 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.sql.Connection;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,8 +33,8 @@ public class MulticastServer extends Thread {
      */
     public static void main(String[] args) {
         //Request server number and database connection
+        Map<String, Object> dataIn = null;
         try {
-            Map<String, Object> dataIn = null;
             while(true){
                 System.out.println("Requesting server number and database connection");
                 //Send request
@@ -74,16 +72,18 @@ public class MulticastServer extends Thread {
             //Start the server
             MulticastServer server = new MulticastServer((Connection)dataIn.get("connection"), (int)dataIn.get("serverNumber"));
             server.start();
-            notify((int)dataIn.get("serverNumber"));
+
             //Notify RMI Server that it is available to receive requests
+            notify((int)dataIn.get("serverNumber"), Request.NEW_SERVER);
+
         } catch (IOException e) {
             e.printStackTrace();
-            if(e instanceof SocketTimeoutException){
-                System.out.println("No response in allocated time");
-                e.printStackTrace();
-            }
-            else{
-                e.printStackTrace();
+            //Server had a problem, notify rmi server that it is not available
+            try{
+                notify((int)dataIn.get("serverNumber"), Request.SERVER_DOWN);
+            } catch (IOException e1){
+                System.out.println("Notify failed");
+                e1.printStackTrace();
             }
         }
     }
@@ -92,17 +92,21 @@ public class MulticastServer extends Thread {
      * Sends an UDP datagram to the RMI Servers with a given server number, notifying them
      * of this server's availability
      * @param serverNumber this server's number
+     * @param code
      * @throws IOException
      */
-    public static void notify(int serverNumber) throws IOException {
+    public static void notify(int serverNumber, int code) throws IOException {
         //Create multicast socket
         MulticastSocket socket = new MulticastSocket();
         Serializer s = new Serializer();
 
         //Create data map
         Map<String, Object> callback = new HashMap<>();
-        callback.put("feature", String.valueOf(Request.NEW_SERVER));
-        callback.put("new_server", serverNumber);
+        callback.put("feature", String.valueOf(code));
+        if (code==Request.NEW_SERVER){
+            callback.put("new_server", serverNumber);
+        }
+        else callback.put("server_down", serverNumber);
 
         byte[] buffer = s.serialize(callback);
 

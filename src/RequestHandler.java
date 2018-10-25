@@ -15,8 +15,10 @@ public class RequestHandler implements Runnable {
     private static int PORT_DBCONNECTION = 7000;
     private static int PORT_DB_ANSWER = 7001;
     private static int PORT_TCP = 7002;
+    private static int PORT_STORAGE = 7003;
 
     private static int TCP_LISTEN_TIMEOUT = 5000; //5 seconds
+    private static int STORAGE_LISTEN_TIMEOUT = 5000;
 
     private DatagramPacket clientPacket;
     private Map<String, Object> data = null;
@@ -402,7 +404,13 @@ public class RequestHandler implements Runnable {
 
                                         //Convert byte array back to a file
                                         MusicFile musicFile = (MusicFile) file;
-                                        FileOutputStream outFile = new FileOutputStream("music/" + musicName + ".txt");
+
+                                        //Request StorageHandler access and save the file there
+                                        uploadToStorage(user, ip, musicName, musicFile);
+                                        client.close();
+                                        serverSocket.close();
+
+                                        /*FileOutputStream outFile = new FileOutputStream("music/" + musicName + ".txt");
                                         if (musicFile == null){
                                             System.out.println("Music file is null");
                                             sendCallback(user, "Error uploading file", null, code);
@@ -429,7 +437,7 @@ public class RequestHandler implements Runnable {
                                         }
                                         else{
                                             sendCallback(user, "File uploaded", null, code);
-                                        }
+                                        }*/
 
                                         break;
                                     }
@@ -445,6 +453,47 @@ public class RequestHandler implements Runnable {
             }
         } catch (Exception e){
             System.out.println("Server aborted packet processing unexpectedly");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void uploadToStorage(String user, InetAddress ip, String name, MusicFile musicFile) {
+        try{
+            //Request storage ip
+            MulticastSocket requestIp = new MulticastSocket(PORT);
+
+            Map<String, Object> data = new HashMap<>();
+
+            data.put("serverNumber", serverNumber);
+            data.put("feature", String.valueOf(Request.STORAGE_ACCESS));
+            data.put("music", name);
+
+            byte[] buffer = s.serialize(data);
+
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            requestIp.joinGroup(group);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+            requestIp.send(packet);
+
+            //Receive answer (with timeout)
+            requestIp = new MulticastSocket(PORT_STORAGE);
+            requestIp.joinGroup(group);
+            requestIp.setSoTimeout(STORAGE_LISTEN_TIMEOUT);
+
+            byte[] bufferIn = new byte[4096];
+
+            packet = new DatagramPacket(bufferIn, bufferIn.length);
+            requestIp.receive(packet);
+
+            Map<String, Object> dataIn = (Map<String, Object>) s.deserialize(bufferIn);
+            if ((int)dataIn.get("serverNumber")==serverNumber){
+                System.out.println("Got ip: " + dataIn.get("ip"));
+            }
+        } catch (IOException e) {
+            if (e instanceof SocketTimeoutException) System.out.println("Requesting storage ip timed out");
+            else e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
