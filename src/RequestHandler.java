@@ -745,7 +745,7 @@ public class RequestHandler implements Runnable {
      *     <li><b>(edit)NewValue:</b> new value of that field</li>
      * </u>
      * <p>
-     * If an edit was requested, it then calls {@link #attributeEdit(int, String, String, String)} that will change that attribute
+     * If an edit was requested, it then calls {@link #attributeEdit(String, int, String, String, String)} that will change that attribute
      * in the database
      * <p>
      * For an addition, {@link #addItem(String, String)} is called, which first checks if same name already exists and then adds the item.
@@ -778,7 +778,7 @@ public class RequestHandler implements Runnable {
                     if (code==Request.EDIT_MUSIC) table = "Music";
                     else if (code== Request.EDIT_ALBUM) table = "Albums";
                     else table = "Artists";
-                    return attributeEdit(attribute, name, newValue, table);
+                    return attributeEdit(user, attribute, name, newValue, table);
                 case Request.ADD_ALBUM:
                 case Request.ADD_ARTIST:
                 case Request.ADD_MUSIC:
@@ -872,6 +872,8 @@ public class RequestHandler implements Runnable {
     /**
      * Edits given attribute as parameter in the database of given item name. Attribute can be a name, birth year or genre,
      * also receives which table to change as parameter
+     *
+     * @param user
      * @param attribute column in the database to change
      * @param name name of the item in the table
      * @param newValue new value of the attribute
@@ -879,10 +881,23 @@ public class RequestHandler implements Runnable {
      * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the field was not changed for whatever reason and
      * 0 if successful
      */
-    private int attributeEdit(int attribute, String name, String newValue, String table) {
+    private int attributeEdit(String user, int attribute, String name, String newValue, String table) {
         try{
+            //Check if re editing
+            boolean reEditing = false;
+            if (table.matches("Albums") || table.matches("Artists")){
+                String query = "SELECT edited FROM "+ table + " WHERE name=\"" + name + "\"";
+                databaseAccess(user, query, true, "edited", Request.MANAGE);
+                String results = (String) databaseReply(user, Request.MANAGE);
+                //Split results string
+                String[] tokens = results.split("_"); //Format: 1_edited_0
+                if (tokens != null){
+                    if (tokens[2].matches("1")) reEditing = true; //It's a re-edit
+                }
+            }
             //Check if attribute is to be edited
             int rc = 0;
+            String sql;
             switch (attribute){
                 case Request.EDIT_NAME:
                     //Check if the new name doesn't already exists
@@ -893,21 +908,28 @@ public class RequestHandler implements Runnable {
                     }
                     else if (rc==0){
                         //Name of the field is to be changed
-                        String sql = "UPDATE " + table + " SET \"" + DB_FIELD_NAME
-                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        //Re edit notification, check if album or artist
+                        if (table.matches("Albums") || table.matches("Artists")){
+                            sql = "UPDATE " + table + " SET \"" + DB_FIELD_NAME
+                                    +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        }
+                        else{
+                            sql = "UPDATE " + table + " SET \"" + DB_FIELD_NAME
+                                    +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        }
                         databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     }
                     break;
                 case Request.EDIT_BIRTH:
                     //Artist birth year is to be changed
-                    String sql = "UPDATE " + table + " SET \"" + DB_FIELD_BIRTH
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_BIRTH
+                            +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
                     databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_GENRE:
                     //Album genre is to be changed
                     sql = "UPDATE " + table + " SET \"" + DB_FIELD_GENRE
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                            +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
                     databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_LYRICS:
@@ -919,13 +941,19 @@ public class RequestHandler implements Runnable {
                 case Request.EDIT_DESCRIPTION:
                     //Album descritpion
                     sql = "UPDATE " + table + " SET \"" + DB_FIELD_DESCRIPTION
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                            +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
                     databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_YEAR:
                     //Album or music year
-                    sql = "UPDATE " + table + " SET \"" + DB_FIELD_YEAR
-                            +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    if (table.matches("Albums") || table.matches("Artists")){
+                        sql = "UPDATE " + table + " SET \"" + DB_FIELD_YEAR
+                                +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    }
+                    else{
+                        sql = "UPDATE " + table + " SET \"" + DB_FIELD_YEAR
+                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                    }
                     databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                     break;
                 case Request.EDIT_FIELD_ALBUMS:
@@ -938,9 +966,16 @@ public class RequestHandler implements Runnable {
                     }
                     else{
                         //Update the value
-                        sql = "UPDATE " + table + " SET \""
-                                + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
-                                +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        if (table.matches("Albums") || table.matches("Artists")){
+                            sql = "UPDATE " + table + " SET \""
+                                    + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
+                                    +  "\"=\"" + newValue + "\", edited=\"1\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        }
+                        else{
+                            sql = "UPDATE " + table + " SET \""
+                                    + (attribute==Request.EDIT_FIELD_ALBUMS ? DB_FIELD_ALBUM : DB_FIELD_ARTIST)
+                                    +  "\"=\"" + newValue + "\" WHERE \"" + DB_FIELD_NAME + "\"=\"" + name + "\"";
+                        }
                         databaseAccess("name", sql, false, "", Request.ATTRIBUTE_EDIT);
                         return 0;
                     }
@@ -952,6 +987,23 @@ public class RequestHandler implements Runnable {
             }
             else{
                 System.out.println("Field edited");
+                String query = "SELECT name FROM Users WHERE editor=1";
+                databaseAccess(user, query, true, "name", Request.ALL_EDITORS);
+                String results = (String) databaseReply(user, Request.ALL_EDITORS);
+                //Split string Format: 1_name_user1_name_user2_..._name_userN_
+                if (results != null){
+                    String[] tokens = results.split("_");
+                    if (tokens.length < 2){
+                        System.out.println("No editors");
+                    }
+                    else{
+                        System.out.println("results: " + results);
+                        for (int i=2; i < tokens.length; i+=2){
+                            System.out.println("User: " + tokens[i]);
+                            sendSingleNotification(tokens[i], user, "Re edited", Request.NOTE_NEW_EDIT);
+                        }
+                    }
+                }
                 return 0;
             }
         } catch (Exception e){

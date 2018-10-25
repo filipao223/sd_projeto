@@ -73,4 +73,5 @@ public class Request {
     protected static final int STORAGE_ACCESS    = 63;
     protected static final int STORAGE_IP        = 64;
     protected static final int STORAGE_ANSWER    = 65;
+    protected static final int ALL_EDITORS       = 66;
 }
