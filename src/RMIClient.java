@@ -235,12 +235,17 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.println("Username?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
+            name = readKeyboard;
+            h.subscribe(name, c);
         }
 //==============================================TORNAR ALGUEM EDITOR=======================================================================================
         else if (readKeyboard.matches("6")) {
             System.out.println("Username?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("editor", readKeyboard);
+
+            name = readKeyboard;
+            h.subscribe(name, c);
 
             System.out.println("New editor?: ");
             readKeyboard = keyboardScanner.nextLine();
@@ -251,6 +256,8 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.println("Username?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
+            name = readKeyboard;
+            h.subscribe(name, c);
             System.out.println("Add, remove or edit?: ");
             readKeyboard = keyboardScanner.nextLine();
 
@@ -378,6 +385,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
 
+            name = readKeyboard;
+            h.subscribe(name, c);
+
             String action = "";
             // TODO test search feature
 
@@ -452,6 +462,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
 
+            name = readKeyboard;
+            h.subscribe(name, c);
+
             System.out.println("Album name?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("album", readKeyboard);
@@ -462,6 +475,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
 
+            name = readKeyboard;
+            h.subscribe(name, c);
+
             System.out.println("Artist name?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("artist", readKeyboard);
@@ -470,6 +486,9 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.println("Username?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);
+
+            name = readKeyboard;
+            h.subscribe(name, c);
 
             System.out.println("Music name?: ");
             readKeyboard = keyboardScanner.nextLine();
