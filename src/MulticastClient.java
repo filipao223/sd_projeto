@@ -430,7 +430,7 @@ class MulticastUser extends Thread {
 }
 
 class DecodePacket implements Runnable{
-    private static int PORT_TCP = 7002;
+    private static int PORT_TCP = 7003;
     private static int TCP_LISTEN_TIMEOUT = 5000; //5 seconds
     private static List<Integer> serverNumbers;
     private DatagramPacket packet;

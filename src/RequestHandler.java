@@ -362,26 +362,79 @@ public class RequestHandler implements Runnable {
                                 break;
                             }
 
-                            //Get this machine's server
-                            InetAddress ip = InetAddress.getLocalHost();
-                            String ipString = ip.getHostAddress();
-                            System.out.println("This machine address: " + ipString);
+                            //Get the storage server's ip
+                            //Request storage ip
+                            MulticastSocket requestIp = new MulticastSocket(PORT_DBCONNECTION);
 
                             Map<String, Object> data = new HashMap<>();
+
+                            data.put("serverNumber", serverNumber);
+                            data.put("feature", String.valueOf(Request.STORAGE_ACCESS));
+                            data.put("music", musicName);
+
+                            byte[] buffer = s.serialize(data);
+
+                            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                            requestIp.joinGroup(group);
+                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
+                            requestIp.send(packet);
+
+                            //Receive answer (with timeout)
+                            requestIp = new MulticastSocket(PORT_STORAGE);
+                            requestIp.joinGroup(group);
+                            requestIp.setSoTimeout(STORAGE_LISTEN_TIMEOUT);
+
+                            byte[] bufferIn = new byte[4096];
+
+                            String ipString;
+
+                            packet = new DatagramPacket(bufferIn, bufferIn.length);
+                            while (true){
+                                requestIp.receive(packet);
+
+                                Map<String, Object> dataIn = (Map<String, Object>) s.deserialize(bufferIn);
+                                if ((int)dataIn.get("serverNumber")==serverNumber){
+                                    System.out.println("Got ip: " + dataIn.get("ip"));
+                                    ipString = (String)dataIn.get("ip");
+                                    break;
+                                }
+                            }
+
+                            System.out.println("Storage machine address: " + ipString);
+
+                            data = new HashMap<>();
 
                             data.put("feature", String.valueOf(Request.OPEN_TCP));
                             data.put("username", user);
                             data.put("address", ipString);
                             data.put("musicName", musicName);
+                            data.put("clientIp", clientIp);
 
-                            byte[] buffer = s.serialize(data);
+                            buffer = s.serialize(data);
 
-                            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+                            group = InetAddress.getByName(MULTICAST_ADDRESS);
                             socket.joinGroup(group);
-                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                            packet = new DatagramPacket(buffer, buffer.length, group, PORT);
                             socket.send(packet);
 
-                            //Wait for user to connect, using a timeout
+                            //Wait for the response from storage server, to check if successful
+                            requestIp = new MulticastSocket(PORT_STORAGE);
+                            requestIp.joinGroup(group);
+                            bufferIn = new byte[4096];
+                            packet = new DatagramPacket(bufferIn, bufferIn.length);
+                            requestIp.setSoTimeout(TCP_LISTEN_TIMEOUT*3);
+                            while(true){
+                                requestIp.receive(packet);
+
+                                data = (Map<String, Object>) s.deserialize(packet.getData());
+
+                                if ((int)data.get("server")==serverNumber){
+                                    System.out.println("Response: " + data.get("response"));
+                                    break;
+                                }
+                            }
+
+                            /*//Wait for user to connect, using a timeout
                             try{
                                 ServerSocket serverSocket = new ServerSocket(PORT_TCP);
                                 serverSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
@@ -406,7 +459,7 @@ public class RequestHandler implements Runnable {
                                         MusicFile musicFile = (MusicFile) file;
 
                                         //Request StorageHandler access and save the file there
-                                        uploadToStorage(user, ip, musicName, musicFile);
+                                        //uploadToStorage(user, ip, musicName, musicFile);
                                         client.close();
                                         serverSocket.close();
 
@@ -437,7 +490,7 @@ public class RequestHandler implements Runnable {
                                         }
                                         else{
                                             sendCallback(user, "File uploaded", null, code);
-                                        }*/
+                                        }
 
                                         break;
                                     }
@@ -447,20 +500,21 @@ public class RequestHandler implements Runnable {
                                 sendCallback(user, "Upload timed out", null, code);
                             } catch (Exception e){
                                 e.printStackTrace();
-                            }
+                            }*/
                         }
                 }
             }
         } catch (Exception e){
             System.out.println("Server aborted packet processing unexpectedly");
+            if (e instanceof SocketTimeoutException) System.out.println("Response from storage sucess timed out");
         }
     }
 
     @SuppressWarnings("unchecked")
     private void uploadToStorage(String user, InetAddress ip, String name, MusicFile musicFile) {
-        try{
+        /*try{
             //Request storage ip
-            MulticastSocket requestIp = new MulticastSocket(PORT);
+            MulticastSocket requestIp = new MulticastSocket(PORT_DBCONNECTION);
 
             Map<String, Object> data = new HashMap<>();
 
@@ -472,7 +526,7 @@ public class RequestHandler implements Runnable {
 
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             requestIp.joinGroup(group);
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
             requestIp.send(packet);
 
             //Receive answer (with timeout)
@@ -488,13 +542,15 @@ public class RequestHandler implements Runnable {
             Map<String, Object> dataIn = (Map<String, Object>) s.deserialize(bufferIn);
             if ((int)dataIn.get("serverNumber")==serverNumber){
                 System.out.println("Got ip: " + dataIn.get("ip"));
+
+                //Connect using tcp and upload
             }
         } catch (IOException e) {
             if (e instanceof SocketTimeoutException) System.out.println("Requesting storage ip timed out");
             else e.printStackTrace();
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     /**
