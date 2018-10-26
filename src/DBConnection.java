@@ -1,7 +1,6 @@
 import org.omg.CORBA.TIMEOUT;
 
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.net.*;
 import java.sql.*;
 import java.util.*;
@@ -56,7 +55,7 @@ public class DBConnection extends Thread {
                     else if (Integer.parseInt((String)dataIn.get("feature")) == Request.STORAGE_ACCESS){
                         System.out.println("Storage access requested");
                         //Send ip of this machine back
-                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"));
+                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"));
                         executor.submit(task);
                     }
 
@@ -76,12 +75,14 @@ class StorageHandler implements Runnable{
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT_STORAGE = 7003;
     private int serverNumber;
+    private String clientIp;
     private static Serializer s = new Serializer();
     private static int TIMEOUT = 5000; //5 seconds
 
-    StorageHandler(String fileName, int serverNumber){
+    StorageHandler(String fileName, int serverNumber, String clientIp){
         this.fileName = fileName;
         this.serverNumber = serverNumber;
+        this.clientIp = clientIp;
     }
 
     @Override
@@ -103,15 +104,61 @@ class StorageHandler implements Runnable{
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_STORAGE);
 
             storage.send(packet);
-            storage.close();
 
-            //Await a TCP connection from the RequestHandler
+            //Await a TCP connection from the client
             ServerSocket server = new ServerSocket(PORT_STORAGE);
             server.setSoTimeout(TIMEOUT);
             while (true){
-                server.accept();
+                Socket client = server.accept();
                 System.out.println("Accepted connection from RequestHandler");
-                break;
+
+                //Receive bytes
+                if (client.getLocalAddress().getHostAddress().matches(clientIp)) { //If it's the correct client connecting
+                    //Receive data
+                    ObjectInputStream inFromClient =
+                            new ObjectInputStream(client.getInputStream());
+                    Object file = null;
+                    try {
+                        file = inFromClient.readObject();
+                    } catch (EOFException e) {
+                        System.out.println("Finished reading object");
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                    }
+
+                    System.out.println("User uploaded: " + file);
+
+                    //Close connection
+                    client.close();
+                    server.close();
+
+                    //Convert byte array back to a file
+                    MusicFile musicFile = (MusicFile) file;
+
+                    //Write the file to disk
+                    FileOutputStream outFile = new FileOutputStream("music/" + fileName + ".txt");
+                    if (musicFile == null){
+                        System.out.println("Music file is null");
+                    }
+                    else{
+                        outFile.write(musicFile.fileContent);
+                    }
+
+                    outFile.close();
+
+                    //Respond to multicast server
+                    dataOut = new HashMap<>();
+                    dataOut.put("server", serverNumber);
+                    dataOut.put("response", "Success");
+
+                    buffer = s.serialize(dataOut);
+                    packet = new DatagramPacket(buffer, buffer.length, group, PORT_STORAGE);
+
+                    storage.send(packet);
+
+                    break;
+                }
+                System.out.println("No match");
             }
 
             server.close();
