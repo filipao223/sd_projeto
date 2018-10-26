@@ -35,7 +35,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             System.out.println(mentry.getValue());
         }*/
 
-        int PORT_TCP = 7002;
+        int PORT_TCP = 7003;
         int TCP_LISTEN_TIMEOUT = 5000;
 
 
