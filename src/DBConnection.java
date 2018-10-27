@@ -67,7 +67,8 @@ public class DBConnection extends Thread {
                     else if (Integer.parseInt((String)dataIn.get("feature")) == Request.OPEN_TCP){
                         System.out.println("Storage access requested");
                         //Send ip of this machine back
-                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"));
+                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"),
+                                (String)dataIn.get("username"));
                         executor.submit(task);
                     }
 
@@ -104,6 +105,7 @@ class StorageHandler implements Runnable{
     private static int PORT_CLIENT = 4321;
     private int serverNumber;
     private String clientIp;
+    private String username;
     private static Serializer s = new Serializer();
     private static int TIMEOUT = 5000; //5 seconds
 
@@ -114,10 +116,11 @@ class StorageHandler implements Runnable{
      * @param clientIp IP address of the client that wants to upload the file.
      * @author Joao Montenegro
      */
-    StorageHandler(String fileName, int serverNumber, String clientIp){
+    StorageHandler(String fileName, int serverNumber, String clientIp, String username){
         this.fileName = fileName;
         this.serverNumber = serverNumber;
         this.clientIp = clientIp;
+        this.username = username;
     }
 
     @Override
@@ -131,6 +134,7 @@ class StorageHandler implements Runnable{
 
             Map<String, Object> dataOut = new HashMap<>();
 
+            dataOut.put("username", username);
             dataOut.put("serverNumber", serverNumber);
             dataOut.put("feature", String.valueOf(Request.OPEN_TCP));
             dataOut.put("address", address.getHostAddress());

@@ -411,7 +411,7 @@ public class RequestHandler implements Runnable {
 
                                 if ((int)data.get("server")==serverNumber){
                                     System.out.println("Response: " + data.get("response"));
-                                    if (((String)data.get("response")).matches("")){
+                                    if (((String)data.get("response")).matches("Success")){
                                         //Now add the file's location to the database
                                         sql = "UPDATE Music SET uri=\"music/" + musicName + ".txt\" WHERE name=\"" + musicName + "\"";
                                         databaseAccess(user, sql, false, "", Request.UPLOAD_MUSIC);
