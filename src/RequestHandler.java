@@ -412,8 +412,9 @@ public class RequestHandler implements Runnable {
                                 if ((int)data.get("server")==serverNumber){
                                     System.out.println("Response: " + data.get("response"));
                                     if (((String)data.get("response")).matches("Success")){
-                                        //Now add the file's location to the database
-                                        sql = "UPDATE Music SET uri=\"music/" + musicName + ".txt\" WHERE name=\"" + musicName + "\"";
+                                        //Now add the file's location to the database and the uploader's name
+                                        sql = "UPDATE Music SET uri=\"music/" + musicName + ".txt\", uploader=\"" +
+                                                user + "\" WHERE name=\"" + musicName + "\"";
                                         databaseAccess(user, sql, false, "", Request.UPLOAD_MUSIC);
                                         rc = Integer.parseInt((String)databaseReply(user, Request.UPLOAD_MUSIC));
 
@@ -430,6 +431,45 @@ public class RequestHandler implements Runnable {
                             }
                         }
                         break;
+            //---------------------------------------------------------------------------------------------------------------------------
+                    case Request.SHARE:
+                        try{
+                            user = (String) data.get("username");
+                            String targetUser = (String) data.get("target"); //User that will have access to music from user
+
+                            //Check if the names are the same (cant share with yourself)
+                            if (user.matches(targetUser)){
+                                sendCallback(user, "User can't share with itself", null, code);
+                                break;
+                            }
+
+                            //First check if user is online
+                            rc = checkLoginState(user);
+                            if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                            else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null, code);
+                            else{
+                                //First check if there are other usernames already sharing their music with targetuser, if there are, concatenate
+                                String sql = "SELECT shared FROM Users WHERE name=\"" + targetUser + "\";";
+                                databaseAccess(user, sql, true, "shared", Request.CHECK_SHARE_USERS);
+                                String results = (String) databaseReply(user, Request.CHECK_SHARE_USERS);
+                                if (results != null){
+                                    //Split string Format: 1_shared_user1_shared_user3_..._shared_userN_
+                                    String[] tokens = results.split("_");
+                                    if (tokens.length < 2 || tokens[2].matches("null")){
+                                        System.out.println("No user yet sharing");
+                                        sql = "UPDATE Users SET shared=\"" + user + "\" WHERE name=\"" + targetUser + "\";";
+                                        databaseAccess(user, sql, false, "", Request.ADD_SHARE_USERS);
+                                    }
+                                    else{
+                                        System.out.println("Users already sharing");
+                                        sql = "UPDATE Users SET shared=shared ||\"|" + user + "\" WHERE name=\"" + targetUser + "\";";
+                                        databaseAccess(user, sql, false, "", Request.ADD_SHARE_USERS);
+                                    }
+                                }
+                            }
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
                 }
             }
         } catch (Exception e){
@@ -719,6 +759,7 @@ public class RequestHandler implements Runnable {
                     return null;
                 }
                 else{
+                    if (tokens[2].matches("null")) return null;
                     return tokens[2];
                 }
             }

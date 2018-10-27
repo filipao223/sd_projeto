@@ -30,6 +30,11 @@ public class MulticastServer extends Thread {
     private Connection mainDatabaseConnection;
     private int serverNumber;
 
+    /**
+     * Starts the server.
+     * @param args
+     * @author Joao Montenegro
+     */
     @SuppressWarnings("unchecked")
     public static void main(String[] args) {
         //Request server number and database connection
@@ -92,8 +97,8 @@ public class MulticastServer extends Thread {
      * Sends an UDP datagram to the RMI Servers with a given server number, notifying them
      * of this server's availability
      * @param serverNumber this server's number.
-     * @param code
-     * @throws IOException
+     * @param code An integer representing if the server went up or down.
+     * @throws IOException Throws an IOException
      * @author Joao Montenegro
      */
     public static void notify(int serverNumber, int code) throws IOException {
