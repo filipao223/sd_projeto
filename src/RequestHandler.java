@@ -284,28 +284,36 @@ public class RequestHandler implements Runnable {
                             String sql;
                             String columns;
 
-                            //Build sql query
-                            if (code == Request.DETAILS_ALBUM){
-                                sql = "SELECT name, year, artist, genre FROM Albums WHERE name=\"" + item +
-                                        "\" UNION SELECT name, null as col1, null as col2, null as col3 FROM Music WHERE album=\"" +
-                                        item + "\";";
-                                columns = "name_year_artist_genre_name";
-                            }
+                            //First check if user is logged in
+                            int rc = checkLoginState(user);
+
+                            if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                            else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null, code);
                             else{
-                                sql = "SELECT name, birth, description, null as col3 FROM Artists WHERE name=\"" + item +
-                                        "\" UNION SELECT name, null as col1, null as col2, null as col3 FROM Albums WHERE artist=\"" +
-                                        item + "\";";
-                                columns = "name_birth_description_name";
+                                //Build sql query
+                                if (code == Request.DETAILS_ALBUM){
+                                    sql = "SELECT name, year, artist, genre FROM Albums WHERE name=\"" + item +
+                                            "\" UNION SELECT name, null as col1, null as col2, null as col3 FROM Music WHERE album=\"" +
+                                            item + "\";";
+                                    columns = "name_year_artist_genre_name";
+                                }
+                                else{
+                                    sql = "SELECT name, birth, description, null as col3 FROM Artists WHERE name=\"" + item +
+                                            "\" UNION SELECT name, null as col1, null as col2, null as col3 FROM Albums WHERE artist=\"" +
+                                            item + "\";";
+                                    columns = "name_birth_description_name";
+                                }
+                                //Access database
+                                databaseAccess(user, sql, true, columns, code);
+                                //Wait for reply
+                                String results = (String) databaseReply(user, code);
+                                if (results == null) sendCallback(user, "No results", null, code);
+                                else sendCallback(user, "Results found", results, code);
                             }
-                            //Access database
-                            databaseAccess(user, sql, true, columns, code);
-                            //Wait for reply
-                            String results = (String) databaseReply(user, code);
-                            if (results == null) sendCallback(user, "No results", null, code);
-                            else sendCallback(user, "Results found", results, code);
                         } catch (Exception e){
                             e.printStackTrace();
                         }
+                        break;
             //---------------------------------------------------------------------------------------------
                     case Request.UPLOAD:
                         //User wants to upload a file
@@ -421,6 +429,7 @@ public class RequestHandler implements Runnable {
                                 }
                             }
                         }
+                        break;
                 }
             }
         } catch (Exception e){

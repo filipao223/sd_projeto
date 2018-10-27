@@ -10,11 +10,17 @@ import java.io.*;
 
 /**
  * Class that creates a client, and has the function that the client uses
+ * @author Joao Mendes
  */
 public class RMIClient extends UnicastRemoteObject implements Client {
 
     static String name = null; //Nome do cliente
 
+    /**
+     * Constructor of RMIClient
+     * @throws RemoteException
+     * @author Joao Mendes
+     */
     public RMIClient() throws RemoteException {
         super();
     }
@@ -24,6 +30,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
      * Works on a switch depending on the feature that the method receives as a argument
      * @param data the map that contains the responses of the server
      * @throws RemoteException
+     * @author Joao Mendes
      */
     public void print_on_client(Map<String, Object> data) throws RemoteException {
 
@@ -115,6 +122,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
      * Returns the name of the client
      * @return the name of the client
      * @throws RemoteException
+     * @author Joao Mendes
      */
     public String getName() throws RemoteException{
         return name;
@@ -128,6 +136,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
      * When in enters on the cicle, if tries to connect to the server, in the case that the connection failed
      * the cicle continues, if it connects, it beggins the function to send a datagram to the RMI Server1
      * @throws RemoteException
+     * @author Joao Mendes
      */
     public static void remake() throws RemoteException {
         long time = System.currentTimeMillis();
@@ -195,7 +204,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
     /**
      * First it checks if the feature that will be on the datagram is already decided
      * <p>
-     * If it isnt the user has to put the feature off the operation that he wants to do
+     * If it isn't the user has to put the feature off the operation that he wants to do
      * If it is the user will put the details of the operation
      * It collects all the information, put in on a hashmap, and return it
      * @param h The server that will be connected, and will send the datagram
@@ -203,6 +212,7 @@ public class RMIClient extends UnicastRemoteObject implements Client {
      * @param keyboardScanner The Scanner for the Keyboard
      * @return the hashmap that will be sent to the RMI Server
      * @throws RemoteException
+     * @author Joao Mendes
      */
     private static HashMap<String, Object> getUserInput(Server h, Client c, Scanner keyboardScanner) throws RemoteException {
         boolean alreadyGotFeatureCode = false;

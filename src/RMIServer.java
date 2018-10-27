@@ -1,5 +1,3 @@
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -16,6 +14,7 @@ import java.util.concurrent.Executors;
 /**
  * Class that will receive all the hashmaps, save the clients(using an ArrayList), start the servers,
  * and send UDP datagram
+ * @author Joao Mendes
  */
 public class RMIServer extends UnicastRemoteObject implements Server {
 
@@ -26,6 +25,11 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	private static int PORT = 4321;
 	private static ExecutorService executor = Executors.newFixedThreadPool(5);
 
+    /**
+     * Constructor of RMIServer
+     * @throws RemoteException
+     * @author Joao Mendes
+     */
 	public RMIServer() throws RemoteException {
 		super();
 	}
@@ -38,6 +42,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	 * @param main The primary server
 	 * @throws RemoteException
 	 * @throws InterruptedException
+     * @author Joao Mendes
 	 */
 	public static void remake(RMIServer backup,RMIServer main) throws RemoteException, InterruptedException {
 		int vezes = 0;
@@ -75,6 +80,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	 * @param name Name of the Client
 	 * @param c ID of the Client
 	 * @throws RemoteException
+     * @author Joao Mendes
 	 */
 	public void subscribe(String name,Client c) throws RemoteException {
 		System.out.println(c);
@@ -89,6 +95,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 	 * This functions receives a HashMap
 	 * @param h HashMap
 	 * @throws RemoteException
+     * @author Joao Mendes
 	 */
 	public void receive(HashMap h) throws RemoteException {
 
@@ -165,6 +172,7 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 /**
  * Class that will receive the packet from the server, and, hand it to a worker thread that will
  * eventually send it to the MultiCast Server
+ * @author Joao Mendes
  */
 class ReceivePacket extends Thread{
     private static String MULTICAST_ADDRESS = "226.0.0.1";
@@ -173,6 +181,12 @@ class ReceivePacket extends Thread{
     private static List<Integer> serverNumbers;
     private static ArrayList<Client> clients;
 
+    /**
+     * Constructor of ReceivePacket
+     * @param serverNumbers The integer List of all available server numbers.
+     * @param clients The list of connected RMI clients.
+     * @author Joao Mendes
+     */
     ReceivePacket(List<Integer> serverNumbers,ArrayList<Client> clients){
         super("RMIServer");
         ReceivePacket.serverNumbers = serverNumbers;
@@ -202,12 +216,20 @@ class ReceivePacket extends Thread{
 
 	/**
 	 * Class that receive the packet sent by the MultiCast Server and sends it to the correct client
+     * @author Joao Mendes
 	 */
 	class Worker implements Runnable{
         private List<Integer> serverNumbers;
         private DatagramPacket packetIn;
         private ArrayList<Client> clients;
 
+        /**
+         * Constructor of Worker
+         * @param serverNumbers The integer List of all available server numbers.
+         * @param packetIn The packet received over UDP multicast from the multicast server.
+         * @param clients The list of connected RMI clients.
+         * @author Joao Mendes
+         */
         Worker(List<Integer> serverNumbers, DatagramPacket packetIn, ArrayList<Client> clients){
             this.serverNumbers = serverNumbers;
             this.packetIn = packetIn;
@@ -261,6 +283,7 @@ class ReceivePacket extends Thread{
  * The class that is responsible for sending the packet to the MultiCast Server
  * <p>
  * It adds the index number of the server to the HashMap and then sends it to the MultiCast Server
+ * @author Joao Mendes
  */
 class SendPacket implements Runnable{
 	private List<Integer> serverNumbers;
@@ -270,6 +293,12 @@ class SendPacket implements Runnable{
 	private int retry = 5000;
 	private static Serializer serializer = new Serializer();
 
+    /**
+     * Constructor of SendPacket
+     * @param serverNumbers The integer List of all available server numbers.
+     * @param data The map that is to be sent over an UDP datagram
+     * @author Joao Mendes
+     */
 	SendPacket(List<Integer> serverNumbers, HashMap<String, Object> data){
 	    this.serverNumbers = serverNumbers;
 	    this.data = data;

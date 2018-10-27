@@ -23,7 +23,7 @@ public class DBConnection extends Thread {
     private Serializer serializer = new Serializer();
 
     /**
-     * Constructor of the class
+     * Starts the server.
      * @param args
      * @author Joao Montenegro
      */
