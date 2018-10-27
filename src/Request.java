@@ -74,4 +74,6 @@ public class Request {
     protected static final int STORAGE_IP        = 64;
     protected static final int STORAGE_ANSWER    = 65;
     protected static final int ALL_EDITORS       = 66;
+    protected static final int CHECK_SHARE_USERS = 67; //internal, code to check in db if are users sharing already
+    protected static final int ADD_SHARE_USERS   = 68; //internal
 }
