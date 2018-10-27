@@ -6,8 +6,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * MulticastClient -> classe que recebe os callbacks do servidor
- * MulticastUser -> classe que interage com o utlizador e envia os pedidos ao servidor
+ * MulticastClient - classe que recebe os callbacks do servidor
+ * MulticastUser - classe que interage com o utlizador e envia os pedidos ao servidor
  * <p>
  * Ao carregar no main, a classe MulticastUser envia o primeiro pedido, do tipo CHECK_SERVER_UP, que pergunta a quaisquer
  * servidores multicast que estejam ligados os seus numeros, para os poder incluir no campo "server number" dos

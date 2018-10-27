@@ -1,5 +1,3 @@
-import org.omg.CORBA.TIMEOUT;
-
 import java.io.*;
 import java.net.*;
 import java.sql.*;
@@ -7,6 +5,15 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Class responsible for receiving UDP packets with database and disk storage access requests, and server number
+ * assignments.
+ * <p>
+ * For a database access, an instance of {@link DatabaseHandler} is created.<br>
+ * For a storage access, an instance of {@link StorageHandler} is created.<br>
+ * For a new server number assignment, an instance of {@link NumberAssigner} is created.
+ * @author Joao Montenegro
+ */
 public class DBConnection extends Thread {
     private static Connection connection;
     private static List<Integer> serverNumbers;
@@ -15,6 +22,11 @@ public class DBConnection extends Thread {
     private static int PORT_STORAGE = 7003;
     private Serializer serializer = new Serializer();
 
+    /**
+     * Constructor of the class
+     * @param args
+     * @author Joao Montenegro
+     */
     public static void main(String args[]){
         DBConnection dbConnection = new DBConnection();
         dbConnection.start();
@@ -28,7 +40,7 @@ public class DBConnection extends Thread {
 
             serverNumbers = new ArrayList<>();
             serverNumbers.addAll(Arrays.asList(0,1,2,3,4,5,6,7,8,9,10));
-            ExecutorService executor = Executors.newFixedThreadPool(3);
+            ExecutorService executor = Executors.newFixedThreadPool(10);
 
             socket = new MulticastSocket(PORT);
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
@@ -52,7 +64,7 @@ public class DBConnection extends Thread {
                                 (String)dataIn.get("columns"),(int)dataIn.get("server"), (int)dataIn.get("feature_requested"));
                         executor.submit(task);
                     }
-                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.STORAGE_ACCESS){
+                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.OPEN_TCP){
                         System.out.println("Storage access requested");
                         //Send ip of this machine back
                         StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"));
@@ -70,15 +82,38 @@ public class DBConnection extends Thread {
     }
 }
 
+/**
+ * Handles all disk storage access.
+ * <p>
+ * When this class is instantiated, it receives the server number of the requesting multicast server, the file name
+ * of the music which is to be uploaded and the machine's IP address from which the upload is to be done from (the client's).
+ * <p>
+ * First step is to send an UDP packet directly to the RMI Server containing this machine's IP, in order to start the upload over TCP.
+ * <p>
+ * After this, using a ServerSocket, the method waits for a user to connect to this socket, using a timeout to prevent failed connections
+ * from blocking this thread.
+ * <p>
+ * Following a successful connection, the music file is uploaded and written to disk, and a reply to the multicast server is sent, reporting
+ * the success of the operation.
+ * @author Joao Montenegro
+ */
 class StorageHandler implements Runnable{
     private String fileName;
     private static String MULTICAST_ADDRESS = "226.0.0.1";
-    private static int PORT_STORAGE = 7003;
+    private static int PORT = 7003;
+    private static int PORT_CLIENT = 4321;
     private int serverNumber;
     private String clientIp;
     private static Serializer s = new Serializer();
     private static int TIMEOUT = 5000; //5 seconds
 
+    /**
+     * Constructor of StorageHandler.
+     * @param fileName Filename of the music which is to be uploaded.
+     * @param serverNumber Number of the server that requested the operation.
+     * @param clientIp IP address of the client that wants to upload the file.
+     * @author Joao Montenegro
+     */
     StorageHandler(String fileName, int serverNumber, String clientIp){
         this.fileName = fileName;
         this.serverNumber = serverNumber;
@@ -88,7 +123,7 @@ class StorageHandler implements Runnable{
     @Override
     public void run() {
         try{
-            MulticastSocket storage = new MulticastSocket(PORT_STORAGE);
+            MulticastSocket storage = new MulticastSocket(PORT_CLIENT);
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             storage.joinGroup(group);
 
@@ -97,16 +132,17 @@ class StorageHandler implements Runnable{
             Map<String, Object> dataOut = new HashMap<>();
 
             dataOut.put("serverNumber", serverNumber);
-            dataOut.put("feature", String.valueOf(Request.STORAGE_IP));
-            dataOut.put("ip", address.getHostAddress());
+            dataOut.put("feature", String.valueOf(Request.OPEN_TCP));
+            dataOut.put("address", address.getHostAddress());
+            dataOut.put("musicName", fileName);
 
             byte[] buffer = s.serialize(dataOut);
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_STORAGE);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_CLIENT);
 
             storage.send(packet);
 
             //Await a TCP connection from the client
-            ServerSocket server = new ServerSocket(PORT_STORAGE);
+            ServerSocket server = new ServerSocket(PORT);
             server.setSoTimeout(TIMEOUT);
             while (true){
                 Socket client = server.accept();
@@ -146,13 +182,13 @@ class StorageHandler implements Runnable{
 
                     outFile.close();
 
-                    //Respond to multicast server
+                    //Report success to multicast server
                     dataOut = new HashMap<>();
                     dataOut.put("server", serverNumber);
                     dataOut.put("response", "Success");
 
                     buffer = s.serialize(dataOut);
-                    packet = new DatagramPacket(buffer, buffer.length, group, PORT_STORAGE);
+                    packet = new DatagramPacket(buffer, buffer.length, group, PORT);
 
                     storage.send(packet);
 
@@ -172,6 +208,14 @@ class StorageHandler implements Runnable{
     }
 }
 
+/**
+ * Handles server number assignment.
+ * <p>
+ * First, it checks if there are available numbers to assign. The numbers are in an integer List.
+ * If there are, then a random index is generated, and a number is removed from the list and sent back to the server
+ * in an UDP packet
+ * @author Joao Montenegro
+ */
 class NumberAssigner implements Runnable{
 
     private DatagramPacket client;
@@ -181,6 +225,13 @@ class NumberAssigner implements Runnable{
     private final static String MULTICAST_ADDRESS = "226.0.0.1";
     private final static int PORT = 7000;
 
+    /**
+     * Constructor of NumberAssigner
+     * @param client The received UDP datagram.
+     * @param serverNumbers The integer List containing available numbers to assign.
+     * @param connection
+     * @param maxNumber Max index of the list, used in Random object
+     */
     NumberAssigner(DatagramPacket client, List<Integer> serverNumbers, Connection connection, int maxNumber){
         this.client = client;
         this.serverNumbers = serverNumbers;
@@ -198,6 +249,7 @@ class NumberAssigner implements Runnable{
             Random r = new Random();
             int index = r.nextInt(maxNumber);
 
+            //Send it back to the server
             Serializer serializer = new Serializer();
             Map<String, Object> data = new HashMap<>();
             data.put("feature", String.valueOf(Request.ASSIGN_NUMBER));
@@ -219,6 +271,19 @@ class NumberAssigner implements Runnable{
     }
 }
 
+// TODO complete javadoc
+
+/**
+ * Handles all database interaction.
+ * <p>
+ * First step is to check if the SQL command is a query (of the SELECT type) or a table update, which return different data types.<br>
+ * After this, the query is executed, and the string containing which columns for each row should be sent back to the multicast server is decoded, being
+ * in the format "column1_column2_..._columnN_". The results are then extracted from the ResultSet.<br>
+ * If it was not a query, a simple integer is placed in the string.
+ * <p>
+ * The string is sent back to the multicast server via UDP and multicast.
+ * @author Joao Montenegro
+ */
 class DatabaseHandler implements Runnable{
     private Connection connection;
     private String sql;
@@ -231,6 +296,17 @@ class DatabaseHandler implements Runnable{
     private String user;
     private int feature;
 
+    /**
+     * Constructor of DatabaseHandler
+     * @param user The user that requested the database access.
+     * @param connection The shared database connection that is to be used.
+     * @param sql The SQL query to be executed.
+     * @param isQuery If the query is of the 'SELECT' type.
+     * @param columnsToGet What columns the query is to get for each row.
+     * @param serverNumber The multicast server that requested the access.
+     * @param feature The original feature that resulted in a database access.
+     * @author Joao Montenegro
+     */
     DatabaseHandler(String user, Connection connection, String sql, boolean isQuery, String columnsToGet, int serverNumber, int feature){
         this.user = user;
         this.connection = connection;
@@ -296,20 +372,12 @@ class DatabaseHandler implements Runnable{
     }
 
     /**
-     * Small method to open a database connection
+     * Opens a database connection
      * @throws SQLException
+     * @author Joao Montenegro
      */
     private void connect() throws SQLException {
         // create the connection
         connection = DriverManager.getConnection("jdbc:sqlite:database/sd.db");
-    }
-
-    /**
-     * Small method to close a database connection
-     * @throws SQLException
-     */
-    private void disconnect() throws SQLException {
-        // create the connection
-        connection.close();
     }
 }

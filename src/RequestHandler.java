@@ -1,5 +1,3 @@
-
-
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
@@ -7,25 +5,46 @@ import java.sql.*;
 import java.util.*;
 
 /**
- * Runnable that handles a single UDP datagram
+ * Runnable that handles a single UDP datagram.
+ * <p>
+ * Before starting to process the client's request, the server number of the packet is checked against
+ * the server's number. If it matches, processing continues, if it doesn't, the thread simply returns,
+ * another server will handle processing of this request.
+ * <p>
+ * Next step is to check which feature was requested. The feature number is extracted from the packet,
+ * and, using a simple switch, is checked against Request codes.
+ * <p>
+ * All operations require authentication, using {@link #checkLoginState(String)}. Depending on which integer code
+ * is returned, either a UDP packet is sent back to the client, aborting the process, or the request processing continues.
+ * <p>
+ * Some operations, like making someone else an editor, or managing info, requires the user to have editor
+ * privileges. This check is made using {@link #checkIfEditor(String)}. As with the login check, if user is not an
+ * editor, a UDP packet is sent to the client or the processing continues.
+ * <p>
+ * All database operations are made with {@link #databaseAccess(String, String, boolean, String, int)} and all replies from
+ * the database are received using {@link #databaseReply(String, int)}. To identify which UDP packet containing the reply
+ * belongs to which RequestHandler, the name of the user that requested the feature, the integer code of the feature and
+ * the server number are used.
+ * <p>
+ * All UDP packets sent back to the RMI Server are sent using {@link #sendCallback(String, String, Object, int)}.
+ * @author João Montenegro
  */
 public class RequestHandler implements Runnable {
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 4321;
     private static int PORT_DBCONNECTION = 7000;
     private static int PORT_DB_ANSWER = 7001;
-    private static int PORT_TCP = 7002;
     private static int PORT_STORAGE = 7003;
 
     private static int TCP_LISTEN_TIMEOUT = 5000; //5 seconds
-    private static int STORAGE_LISTEN_TIMEOUT = 5000;
 
     private DatagramPacket clientPacket;
     private Map<String, Object> data = null;
 
+    private static Connection connection;
+
     private static Serializer s = new Serializer();
 
-    private static Connection connection;
     private static int serverNumber;
 
     private static String new_editor_note = "You have been made editor by user ";
@@ -34,7 +53,6 @@ public class RequestHandler implements Runnable {
     private static int NO_LOGIN        = 1;
     private static int NO_USER_FOUND   = 2;
     private static int ALREADY_LOGIN   = 3;
-    private static int ALREADY_EDITOR  = 4;
     private static int NOT_EDITOR      = 5;
     private static int DB_EXCEPTION    = 6;
     private static int TIMEOUT         = 7;
@@ -48,8 +66,6 @@ public class RequestHandler implements Runnable {
     private static String DB_FIELD_GENRE       = "genre"      ;
     private static String DB_FIELD_LYRICS      = "lyrics"     ;
 
-    // TODO Update javadocs
-
 
     /**
      * Constructor for request handler, uses the UDP datagram received by the server and a database
@@ -57,6 +73,7 @@ public class RequestHandler implements Runnable {
      * @param packet UDP datagram received
      * @param connection Database connection passed by the server, this connection object is shared
      *                   between all request handlers, in order to solve synchronization issues
+     * @author Joao Montenegro
      */
     RequestHandler(DatagramPacket packet, Connection connection, int serverNumber){
         this.clientPacket = packet;
@@ -68,13 +85,6 @@ public class RequestHandler implements Runnable {
 
     /**
      * Main thread code.
-     *<p>
-     * Before starting to process the client's request, the server number of the packet is checked against
-     * the server's number. If it matches, processing continues, if it doesn't, the thread simply returns,
-     * another server will handle processing of this request.
-     *<p>
-     * Next step is to check which feature was requested. The feature number is extracted from the packet,
-     * and, using a simple switch, is checked against Request codes.
      */
     public void run(){
         try{
@@ -362,65 +372,28 @@ public class RequestHandler implements Runnable {
                                 break;
                             }
 
-                            //Get the storage server's ip
-                            //Request storage ip
-                            MulticastSocket requestIp = new MulticastSocket(PORT_DBCONNECTION);
+                            //Send client info to storage server
+                            MulticastSocket requestIp;
 
                             Map<String, Object> data = new HashMap<>();
 
-                            data.put("serverNumber", serverNumber);
-                            data.put("feature", String.valueOf(Request.STORAGE_ACCESS));
+                            data.put("feature", String.valueOf(Request.OPEN_TCP));
+                            data.put("username", user);
                             data.put("music", musicName);
+                            data.put("clientIp", clientIp);
+                            data.put("serverNumber", serverNumber);
 
                             byte[] buffer = s.serialize(data);
 
                             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-                            requestIp.joinGroup(group);
-                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
-                            requestIp.send(packet);
-
-                            //Receive answer (with timeout)
-                            requestIp = new MulticastSocket(PORT_STORAGE);
-                            requestIp.joinGroup(group);
-                            requestIp.setSoTimeout(STORAGE_LISTEN_TIMEOUT);
-
-                            byte[] bufferIn = new byte[4096];
-
-                            String ipString;
-
-                            packet = new DatagramPacket(bufferIn, bufferIn.length);
-                            while (true){
-                                requestIp.receive(packet);
-
-                                Map<String, Object> dataIn = (Map<String, Object>) s.deserialize(bufferIn);
-                                if ((int)dataIn.get("serverNumber")==serverNumber){
-                                    System.out.println("Got ip: " + dataIn.get("ip"));
-                                    ipString = (String)dataIn.get("ip");
-                                    break;
-                                }
-                            }
-
-                            System.out.println("Storage machine address: " + ipString);
-
-                            data = new HashMap<>();
-
-                            data.put("feature", String.valueOf(Request.OPEN_TCP));
-                            data.put("username", user);
-                            data.put("address", ipString);
-                            data.put("musicName", musicName);
-                            data.put("clientIp", clientIp);
-
-                            buffer = s.serialize(data);
-
-                            group = InetAddress.getByName(MULTICAST_ADDRESS);
                             socket.joinGroup(group);
-                            packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
                             socket.send(packet);
 
                             //Wait for the response from storage server, to check if successful
                             requestIp = new MulticastSocket(PORT_STORAGE);
                             requestIp.joinGroup(group);
-                            bufferIn = new byte[4096];
+                            byte[] bufferIn = new byte[4096];
                             packet = new DatagramPacket(bufferIn, bufferIn.length);
                             requestIp.setSoTimeout(TCP_LISTEN_TIMEOUT*3);
                             while(true){
@@ -430,53 +403,7 @@ public class RequestHandler implements Runnable {
 
                                 if ((int)data.get("server")==serverNumber){
                                     System.out.println("Response: " + data.get("response"));
-                                    break;
-                                }
-                            }
-
-                            /*//Wait for user to connect, using a timeout
-                            try{
-                                ServerSocket serverSocket = new ServerSocket(PORT_TCP);
-                                serverSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
-
-                                while (true){
-                                    Socket client = serverSocket.accept();
-
-                                    if (client.getLocalAddress().getHostAddress().matches(clientIp)){ //If it's the correct client connecting
-                                        //Receive data
-                                        ObjectInputStream inFromClient =
-                                                new ObjectInputStream(client.getInputStream());
-                                        Object file = null;
-                                        try{
-                                            file = inFromClient.readObject();
-                                        } catch (EOFException e){
-                                            System.out.println("Finished reading object");
-                                        }
-
-                                        System.out.println("User uploaded: " + file);
-
-                                        //Convert byte array back to a file
-                                        MusicFile musicFile = (MusicFile) file;
-
-                                        //Request StorageHandler access and save the file there
-                                        //uploadToStorage(user, ip, musicName, musicFile);
-                                        client.close();
-                                        serverSocket.close();
-
-                                        /*FileOutputStream outFile = new FileOutputStream("music/" + musicName + ".txt");
-                                        if (musicFile == null){
-                                            System.out.println("Music file is null");
-                                            sendCallback(user, "Error uploading file", null, code);
-                                        }
-                                        else{
-                                            outFile.write(musicFile.fileContent);
-                                        }
-
-                                        outFile.close();
-
-                                        client.close();
-                                        serverSocket.close();
-
+                                    if (((String)data.get("response")).matches("")){
                                         //Now add the file's location to the database
                                         sql = "UPDATE Music SET uri=\"music/" + musicName + ".txt\" WHERE name=\"" + musicName + "\"";
                                         databaseAccess(user, sql, false, "", Request.UPLOAD_MUSIC);
@@ -484,23 +411,15 @@ public class RequestHandler implements Runnable {
 
                                         if (rc==-1){
                                             System.out.println("Error updating file url in database");
-                                            sendCallback(user, "File not uploaded", null, code);
-                                            File file1 = new File("music/" + musicName + ".txt");
-                                            Files.deleteIfExists(file1.toPath());
+                                            // TODO delete file in case of database failure
                                         }
                                         else{
-                                            sendCallback(user, "File uploaded", null, code);
+                                            sendCallback(user, "File upload complete", null, code);
                                         }
-
-                                        break;
                                     }
+                                    break;
                                 }
-                            } catch (SocketTimeoutException e){
-                                System.out.println("Timeout listening to user");
-                                sendCallback(user, "Upload timed out", null, code);
-                            } catch (Exception e){
-                                e.printStackTrace();
-                            }*/
+                            }
                         }
                 }
             }
@@ -508,49 +427,6 @@ public class RequestHandler implements Runnable {
             System.out.println("Server aborted packet processing unexpectedly");
             if (e instanceof SocketTimeoutException) System.out.println("Response from storage sucess timed out");
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void uploadToStorage(String user, InetAddress ip, String name, MusicFile musicFile) {
-        /*try{
-            //Request storage ip
-            MulticastSocket requestIp = new MulticastSocket(PORT_DBCONNECTION);
-
-            Map<String, Object> data = new HashMap<>();
-
-            data.put("serverNumber", serverNumber);
-            data.put("feature", String.valueOf(Request.STORAGE_ACCESS));
-            data.put("music", name);
-
-            byte[] buffer = s.serialize(data);
-
-            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
-            requestIp.joinGroup(group);
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
-            requestIp.send(packet);
-
-            //Receive answer (with timeout)
-            requestIp = new MulticastSocket(PORT_STORAGE);
-            requestIp.joinGroup(group);
-            requestIp.setSoTimeout(STORAGE_LISTEN_TIMEOUT);
-
-            byte[] bufferIn = new byte[4096];
-
-            packet = new DatagramPacket(bufferIn, bufferIn.length);
-            requestIp.receive(packet);
-
-            Map<String, Object> dataIn = (Map<String, Object>) s.deserialize(bufferIn);
-            if ((int)dataIn.get("serverNumber")==serverNumber){
-                System.out.println("Got ip: " + dataIn.get("ip"));
-
-                //Connect using tcp and upload
-            }
-        } catch (IOException e) {
-            if (e instanceof SocketTimeoutException) System.out.println("Requesting storage ip timed out");
-            else e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }*/
     }
 
     /**
@@ -566,6 +442,7 @@ public class RequestHandler implements Runnable {
      * @param user the user that requested the search
      * @param action concatenated string of Request codes and attribute values
      * @return the database query results in String format, which can be null if no results were found
+     * @author Joao Montenegro
      */
     private String searchHandler(String user, String action) {
         try{
@@ -627,7 +504,8 @@ public class RequestHandler implements Runnable {
      * @param columns columns to be returned to the user for each row queried
      * @param feature feature requested by the user, mainly to identify which database reply belongs to who in
      *                a simultaneous user situation
-     * @throws IOException
+     * @throws IOException Throws an IOException.
+     * @author Joao Montenegro
      */
     private void databaseAccess(String user, String sqlQuery, boolean isQuery, String columns, int feature) throws IOException {
         MulticastSocket socket = new MulticastSocket();
@@ -657,10 +535,11 @@ public class RequestHandler implements Runnable {
      * <p>
      * Uses the name of the user who requested the database access, the feature that was requested and the server number
      * to check which reply belongs to what user request.
-     * @param user the user that requested the database access
-     * @param feature_requested the feature that the user requested
+     * @param user the user that requested the database access.
+     * @param feature_requested the feature that the user requested.
      * @return an Object with the query results, this can be a string with multiple row information, or a simple integer
-     *          reporting the success of the query, depending exactly on which feature was requested
+     *          reporting the success of the query, depending exactly on which feature was requested.
+     * @author Joao Montenegro
      */
     @SuppressWarnings("unchecked")
     private Object databaseReply(String user, int feature_requested){
@@ -691,12 +570,13 @@ public class RequestHandler implements Runnable {
 
     /**
      * Sends single notification immediately to given user if said user is online over UDP. If user is not
-     * online, then notification is saved in the database
-     * @param targetUser the user which the notification is meant to
-     * @param user user responsible for triggering notification
+     * online, then notification is saved in the database.
+     * @param targetUser the user which the notification is meant to.
+     * @param user user responsible for triggering notification.
      * @param edit a small description of the edited resource,
-     *             in the case the notification informs about a new edit
-     * @param code the Request code associated with edit type, if an edit was made
+     *             in the case the notification informs about a new edit.
+     * @param code the Request code associated with edit type, if an edit was made.
+     * @author Joao Montenegro
      */
     private void sendSingleNotification(String targetUser, String user, String edit, int code) {
         try{
@@ -770,9 +650,12 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Sends given string of concatenated notifications to user passed as parameter over UDP
-     * @param user the user to which the notifications are meant
-     * @param notes concatenated notifications
+     * Sends given string of concatenated notifications to user passed as parameter over UDP.<br>
+     * The notes are in this format: note1|note2|...|noteN_. RMI Server is responsible for breaking down this
+     * string.
+     * @param user the user to which the notifications are meant.
+     * @param notes concatenated notifications.
+     * @author Joao Montenegro
      */
     private void sendMultipleNotifications(String user, String notes){
         try{
@@ -805,10 +688,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Gets all the pending notifications of user passed as parameter
-     * @param user
+     * Gets all the saved notifications of user passed as parameter from the database.
+     * @param user The user from which notes are to be retrieved.
      * @return a single string with all the notifications concatenated, separated by '|' character.
-     *          String is null if there are no notifications to get
+     *          String is null if there are no notifications to get.
+     * @author Joao Montenegro
      */
     private String getAllNotes(String user) {
         try{
@@ -842,25 +726,27 @@ public class RequestHandler implements Runnable {
      * <p>
      * First step is to parse the string received in the UDP datagram into 4 different strings if it is an edit,
      * or 2 strings if it is a removal or an addition:
-     * <u>
-     *     <li><b>Code:</b> determines which type of resource to edit, music, album or artist, or if it is an addition/removal</li>
-     *     <li><b>(rem/add)Name:</b> name of the item that is to be added or removed</li>
-     *     <li><b>(edit)Attribute:</b> which field of that resource it is to be changed</li>
-     *     <li><b>(edit)Name:</b> which resource the user wants to change, for example, name of the album</li>
-     *     <li><b>(edit)NewValue:</b> new value of that field</li>
-     * </u>
+     * <p>
+     *
+     * <b>   Code:</b> determines which type of resource to edit, music, album or artist, or if it is an addition/removal;<br>
+     * <b>   (rem/add)Name:</b> name of the item that is to be added or removed;<br>
+     * <b>   (edit)Attribute:</b> which field of that resource it is to be changed;<br>
+     * <b>   (edit)Name:</b> which resource the user wants to change, for example, name of the album;<br>
+     * <b>   (edit)NewValue:</b> new value of that field.
+     *
      * <p>
      * If an edit was requested, it then calls {@link #attributeEdit(String, int, String, String, String)} that will change that attribute
-     * in the database
+     * in the database.
      * <p>
      * For an addition, {@link #addItem(String, String)} is called, which first checks if same name already exists and then adds the item.
      * <p>
      * For a removal, {@link #removeItem(String, String)} is called, which first checks if the item exists and then removes it from the database.
-     * @param user editor that requested the change
-     * @param action string that holds command
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if unsuccessful edit,
-     * -2 if unsuccessful addition, -3 if unsuccessful removal, 0 if successful edit,
-     * 1 if successful addition and 2 if successful removal
+     * @param user editor that requested the change.
+     * @param action string that holds command.
+     * @return an integer. -1 if unsuccessful edit,
+     *          -2 if unsuccessful addition, -3 if unsuccessful removal, 0 if successful edit,
+     *          1 if successful addition and 2 if successful removal.
+     * @author Joao Montenegro
      */
     private int managerHandler(String user, String action){
         try{
@@ -910,10 +796,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Adds item to database with given name as parameter into given table
-     * @param name
-     * @param table
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -2 if item wasn't added and 1 otherwise
+     * Adds item to database with given name as parameter into given table.
+     * @param name Name of the artist/album/music to be added.
+     * @param table Name of the table where the item is to placed.
+     * @return an integer. -1 if there was an exception, -2 if item wasn't added and 1 otherwise.
+     * @author Joao Montenegro
      */
     private int addItem(String name, String table) {
         // TODO (optional) Allow more parameters when creating new album or artist
@@ -942,10 +829,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Removes item with given name as parameter in given table from the database, first checking if it exists
-     * @param name
-     * @param table
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -3 if item wasn't removed and 2 otherwise
+     * Removes item with given name as parameter in given table from the database, first checking if it exists.
+     * @param name Name of the artist/album/music to be removed.
+     * @param table Name of the table where the item exists.
+     * @return an integer. -1 if there was an exception, -3 if item wasn't removed and 2 otherwise.
+     * @author Joao Montenegro
      */
     private int removeItem(String name, String table){
         try{
@@ -976,15 +864,16 @@ public class RequestHandler implements Runnable {
 
     /**
      * Edits given attribute as parameter in the database of given item name. Attribute can be a name, birth year or genre,
-     * also receives which table to change as parameter
+     * also receives which table to change as parameter.
      *
-     * @param user
-     * @param attribute column in the database to change
-     * @param name name of the item in the table
-     * @param newValue new value of the attribute
-     * @param table table in which to change the attribute
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the field was not changed for whatever reason and
-     * 0 if successful
+     * @param user The user that requested the feature.
+     * @param attribute column in the database to change.
+     * @param name name of the item in the table.
+     * @param newValue new value of the attribute.
+     * @param table table in which to change the attribute.
+     * @return an integer. -1 if the field was not changed for whatever reason and
+     *          0 if successful.
+     * @author Joao Montenegro
      */
     private int attributeEdit(String user, int attribute, String name, String newValue, String table) {
         try{
@@ -1119,10 +1008,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Checks if a given name of an item in a given table as parameter already exists in the database
-     * @param name
-     * @param table
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if item already exists, 0 otherwise
+     * Checks if a given name of an item in a given table as parameter already exists in the database.
+     * @param name Name of the item that contains the attribute to be edited.
+     * @param table Name of the table that contains the item.
+     * @return an integer. -1 if item already exists, 0 otherwise.
+     * @author Joao Montenegro
      */
     private int checkIfNameExists(String name, String table){
         try{
@@ -1146,10 +1036,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Simple method that checks if a given artist as parameter exists in the database
-     * @param artist
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the artist was not found
-     * and the artist's id in the database if successful
+     * Checks if a given artist as parameter exists in the database.
+     * @param artist The artist name that is to be checked.
+     * @return an integer. -1 if the artist was not found
+     *          and the artist's id in the database if successful.
+     * @author Joao Montenegro
      */
     private int checkIfArtistExists(String artist) {
         try{
@@ -1174,10 +1065,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Simple method that checks if a given album as parameter exists in the database
-     * @param album
-     * @return an integer. DB_EXCEPTION if there was a SQL related exception, -1 if the album was not found
-     * and the album's id in the database if successful
+     * Checks if a given album as parameter exists in the database
+     * @param album The album name that is to be checked.
+     * @return an integer. -1 if the album was not found
+     *          and the album's id in the database if successful.
+     * @author Joao Montenegro
      */
     private int checkIfAlbumExists(String album) {
         try{
@@ -1200,12 +1092,12 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Registers user passed as parameter, saving its name and password in the database
-     * First user to register is automatically made editor
-     * @param user
-     * @param pass
-     * @return the integer codes defined in the class. DB_EXCEPTION if there was a SQL related exception,
-     *          -1 if user already exists and 0 if successful
+     * Registers user passed as parameter, saving its name and password in the database.
+     * First user to register is automatically made editor.
+     * @param user The username that is to be added to the database.
+     * @param pass Its password.
+     * @return an integer. -1 if user already exists and 0 if successful.
+     * @author Joao Montenegro
      */
     private int registerHandler(String user, String pass) {
         try{
@@ -1253,11 +1145,11 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Changes editor privileges of the user passed as parameter
-     * @param editor User that requested the change
-     * @param newEditor User that is to be made editor
-     * @return the integer codes defined in the class. NO_USER_FOUND if one of the users doesn't exist,
-     *          DB_EXCEPTION if there was a SQL related exception and 0 if successful.
+     * Changes editor privileges of the user passed as parameter.
+     * @param editor User that requested the change.
+     * @param newEditor User that is to be made editor.
+     * @return the integer codes defined in the class. NO_USER_FOUND if one of the users doesn't exist and 0 if successful.
+     * @author Joao Montenegro
      */
     @SuppressWarnings("unchecked")
     private int makeEditorHandler(String editor, String newEditor) {
@@ -1291,10 +1183,10 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Utility function that queries the database looking for the username passed as parameter
-     * @param user
-     * @return the integer codes defined in the class. NO_USER_FOUND if no user with that name exists,
-     *          DB_EXCEPTION if there was a SQL related exception and 0 if a user was found
+     * Queries the database looking for the username passed as parameter.
+     * @param user The user that is to be checked.
+     * @return the integer codes defined in the class. NO_USER_FOUND if no user with that name exists and 0 if a user was found.
+     * @author Joao Montenegro
      */
     private int checkIfUserExists(String user) {
         try{
@@ -1320,12 +1212,13 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Returns an UDP packet back to the client
-     * @param user Name of the user that sent the request
-     * @param resposta Description of the callback
-     * @param optional Optional object
-     * @param code
-     * @throws IOException
+     * Returns an UDP packet back to the client.
+     * @param user Name of the user that sent the request.
+     * @param resposta Description of the callback.
+     * @param optional Optional object.
+     * @param code Code of the requested feature.
+     * @throws IOException Throws an IOException.
+     * @author Joao Montenegro
      */
     private void sendCallback(String user, String resposta, Object optional, int code) throws IOException {
         // TODO send back the original feature
@@ -1349,11 +1242,12 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Utility function that checks for the given username as a parameter in the database
-     * @param user
-     * @return the integer codes defined in the class. NO_USER_FOUND if no user with that name exists,
-     *          DB_EXCEPTION if there was a SQL related exception, NO_LOGIN if the user is not logged in
-     *          and 0 it is logged in
+     * Checks for the given username as a parameter in the database.
+     * @param user The username whose login state is to be checked.
+     * @return an integer. -1 if an exception occurred, NO_USER_FOUND if no user with that name exists,
+     *          NO_LOGIN if the user is not logged in
+     *          and 0 if it is logged in.
+     * @author Joao Montenegro
      */
     private int checkLoginState(String user){
         try{
@@ -1395,11 +1289,12 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Utility function that checks if the given user as parameter has editor privileges.
-     * It assumes that the user exists
-     * @param user
-     * @return the integer codes defined in the class. DB_EXCEPTION if there was a SQL related exception,
-     *          NOT_EDITOR if user failed privilege check, 0 if user is editor
+     * Checks if the given user as parameter has editor privileges.
+     * It assumes that the user exists.
+     * @param user The username that is to be checked.
+     * @return an integer. -1 if there was an exception,
+     *          NOT_EDITOR if user failed privilege check and 0 if user is editor.
+     * @author Joao Montenegro
      */
     private int checkIfEditor(String user){
         try{
@@ -1424,13 +1319,14 @@ public class RequestHandler implements Runnable {
     }
 
     /**
-     * Handles login and logout for the user and password given as parameters
-     * @param user
-     * @param password
-     * @param code Depending on this parameter's value, handle login or logout
-     * @return the integer codes defined in the class. NO_USER_FOUND if the user was not found in the database,
+     * Handles login and logout for the user and password given as parameters.
+     * @param user The username that wants to login.
+     * @param password Its password.
+     * @param code Depending on this parameter's value, handle login or logout.
+     * @return an integer. NO_USER_FOUND if the user was not found in the database,
      *          ALREADY_LOGIN if the user is already logged in, -1 if wrong username/password combination
-     *          and 0 for a successful login or logout
+     *          and 0 for a successful login or logout.
+     * @author Joao Montenegro
      */
     @SuppressWarnings("unchecked")
     private int loginHandler(String user, String password, int code){

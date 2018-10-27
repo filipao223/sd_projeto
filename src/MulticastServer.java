@@ -10,7 +10,16 @@ import static java.lang.Thread.sleep;
 
 /**
  * Class that accepts incoming requests and creates task Runnables to process them,
- * using a fixed size thread pool
+ * using a fixed size thread pool.
+ * <p>
+ * After running a MulticastServer, a new connection to DBConnection is opened,
+ * requesting a common database connection object, to handle synchronization issues,
+ * and a server number, which will be used as an indicator of which packet each server
+ * processes.
+ * <p>
+ * Following this procedure, a UDP datagram is sent to the RMI Servers notifying them this
+ * server is ready to process requests.
+ * @author Joao Montenegro
  */
 public class MulticastServer extends Thread {
 
@@ -22,15 +31,6 @@ public class MulticastServer extends Thread {
     private int serverNumber;
 
     @SuppressWarnings("unchecked")
-    /**
-     * After running a MulticastServer, a new connection to DBConnection is opened,
-     * requesting a common database connection object, to handle synchronization issues,
-     * and a server number, which will be used as an indicator of which packet each server
-     * processes.
-     * <p>
-     * Following this procedure, a UDP datagram is sent to the RMI Servers notifying them this
-     * server is ready to process requests.
-     */
     public static void main(String[] args) {
         //Request server number and database connection
         Map<String, Object> dataIn = null;
@@ -91,9 +91,10 @@ public class MulticastServer extends Thread {
     /**
      * Sends an UDP datagram to the RMI Servers with a given server number, notifying them
      * of this server's availability
-     * @param serverNumber this server's number
+     * @param serverNumber this server's number.
      * @param code
      * @throws IOException
+     * @author Joao Montenegro
      */
     public static void notify(int serverNumber, int code) throws IOException {
         //Create multicast socket
