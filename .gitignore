@@ -105,3 +105,6 @@ newmusic/
 
 # Javadocs
 javadoc/
+
+#Jars
+artifacts/
