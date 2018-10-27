@@ -549,6 +549,17 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    /**
+     * Sends the client info to the storage server, such as IP address and music requested,
+     * over an UDP Datagram and multicast, so that it may establish
+     * a TCP connection and perform the file transfer directly to the client's machine.
+     * <p>
+     * It then waits for a UDP reply from the storage server to inform this server of the success of the download.
+     * @param user The user that requested the download.
+     * @param musicName The music name to be uploaded.
+     * @param clientIp The IP address of the client's machine.
+     * @author Joao Montenegro
+     */
     private void downloadMusic(String user, String musicName, String clientIp) {
         try{
             //Send client info to storage server

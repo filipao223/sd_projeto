@@ -11,7 +11,8 @@ import java.util.concurrent.Executors;
  * assignments.
  * <p>
  * For a database access, an instance of {@link DatabaseHandler} is created.<br>
- * For a storage access, an instance of {@link UploadHandler} is created.<br>
+ * For an upload, an instance of {@link UploadHandler} is created.<br>
+ * For a download, an instance of {@link DownloadHandler} is created.<br>
  * For a new server number assignment, an instance of {@link NumberAssigner} is created.
  * @author Joao Montenegro
  */
@@ -90,6 +91,21 @@ public class DBConnection extends Thread {
     }
 }
 
+/**
+ * Handles all downloads.
+ * <p>
+ * When this class is instantiated, it receives the server number of the requesting multicast server, the file name
+ * of the music which is to be downloaded and the machine's IP address from which the download is to be done to (the client's).
+ * <p>
+ * First step is to send an UDP packet directly to the RMI Server containing this machine's IP, in order to start the download over TCP.
+ * <p>
+ * After this, using a ServerSocket, the method waits for a user to connect to this socket, using a timeout to prevent failed connections
+ * from blocking this thread.
+ * <p>
+ * Following a successful connection, the music file is uploaded to the client, and a reply to the multicast server is sent, reporting
+ * the success of the operation.
+ * @author Joao Montenegro
+ */
 class DownloadHandler implements Runnable{
     private String fileName;
     private static String MULTICAST_ADDRESS = "226.0.0.1";
@@ -101,6 +117,14 @@ class DownloadHandler implements Runnable{
     private static Serializer s = new Serializer();
     private static int TIMEOUT = 5000; //5 seconds
 
+    /**
+     * Constructor of DownloadHandler.
+     * @param fileName Filename of the music which is to be uploaded.
+     * @param serverNumber Number of the server that requested the operation.
+     * @param clientIp IP address of the client that wants to upload the file.
+     * @param username User that requested the download.
+     * @author Joao Montenegro
+     */
     DownloadHandler(String fileName, int serverNumber, String clientIp, String username) {
         this.fileName = fileName;
         this.serverNumber = serverNumber;
@@ -182,7 +206,7 @@ class DownloadHandler implements Runnable{
 }
 
 /**
- * Handles all disk storage access.
+ * Handles all uploads, saving the files to disk.
  * <p>
  * When this class is instantiated, it receives the server number of the requesting multicast server, the file name
  * of the music which is to be uploaded and the machine's IP address from which the upload is to be done from (the client's).
