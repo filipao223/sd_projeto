@@ -120,6 +120,17 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 
 	// =======================================================
 
+    /**
+     * First it creates the 2 servers, the main and backup, after that is creates a registry that
+     * only one will use, and bind the main server to it
+     * <p>
+     * After that, multithreading is used receive all the packets sent by the client, while it also
+     * sends packets to the multicast server
+     * <p>
+     * In the while(true), the backup server always checks the status of the main, using the function
+     * remake explained above
+     * @param args
+     */
 	public static void main(String args[]) {
 
 
@@ -170,8 +181,10 @@ public class RMIServer extends UnicastRemoteObject implements Server {
 }
 
 /**
- * Class that will receive the packet from the server, and, hand it to a worker thread that will
- * eventually send it to the MultiCast Server
+ * Class that will receive the packet from the server
+ * <p>
+ * It receives the packet, and hands it to a worker thread, that will eventually send it to a client
+ * using a callback method
  * @author Joao Mendes
  */
 class ReceivePacket extends Thread{
@@ -216,6 +229,12 @@ class ReceivePacket extends Thread{
 
 	/**
 	 * Class that receive the packet sent by the MultiCast Server and sends it to the correct client
+     * <p>
+     * First it transforms the datagram to a hashmap, after that, all the hashmap have atleast the
+     * name of the user who sent the request, and comparing the name to the clients saved in the server
+     * the result will be sent to the correct user
+     * Some answers sent by the multicast arent supposed to be seen by the user, for example
+     * the quantity of servers, and if one shutdowns
      * @author Joao Mendes
 	 */
 	class Worker implements Runnable{
@@ -283,6 +302,10 @@ class ReceivePacket extends Thread{
  * The class that is responsible for sending the packet to the MultiCast Server
  * <p>
  * It adds the index number of the server to the HashMap and then sends it to the MultiCast Server
+ * <p>
+ * To send it, it first checks if there are any servers available, if not, it will retry in 5 seconds
+ * if one is available, it will be added the server number to the hashmap, and, using UDP, be sent
+ * to the multicast
  * @author Joao Mendes
  */
 class SendPacket implements Runnable{

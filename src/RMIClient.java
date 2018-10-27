@@ -9,7 +9,14 @@ import java.rmi.server.*;
 import java.io.*;
 
 /**
- * Class that creates a client, and has the function that the client uses
+ * Class that creates a client,the client will have a name that will change depending on the function
+ * used
+ * <p>
+ * It locates the registry used by the server,after that, creates a new client that will be saved on
+ * the server, and reading from the keyboard inputs, creates a hashmap that will be sent
+ * <p>
+ * To print on the client its used a callback method "print_on_client", this method will run
+ * on the server
  * @author Joao Mendes
  */
 public class RMIClient extends UnicastRemoteObject implements Client {
@@ -166,6 +173,13 @@ public class RMIClient extends UnicastRemoteObject implements Client {
         }
     }
 
+    /**
+     * Locates the server by the registry, after that is creates the new client, and, in a
+     * while(true) loop, checks the user input to send in a hashmap
+     * <p>
+     * In the case of a exception, it enters the function explained above
+     * @param args
+     */
     public static void main(String[] args){
         //Codes example
         try {
