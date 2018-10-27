@@ -527,6 +527,19 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             String address = ip.getHostAddress();
             data.put("client", address);
         }
+//=================================================SHARE=============================================
+        else if (readKeyboard.matches("11")) {
+            System.out.println("Username?: ");
+            readKeyboard = keyboardScanner.nextLine();
+            data.put("username", readKeyboard);
+
+            name = readKeyboard;
+            h.subscribe(name, c);
+
+            System.out.println("Target Username?: ");
+            readKeyboard = keyboardScanner.nextLine();
+            data.put("target", readKeyboard);
+        }
         return data;
     }
 
