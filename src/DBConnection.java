@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -10,7 +11,7 @@ import java.util.concurrent.Executors;
  * assignments.
  * <p>
  * For a database access, an instance of {@link DatabaseHandler} is created.<br>
- * For a storage access, an instance of {@link StorageHandler} is created.<br>
+ * For a storage access, an instance of {@link UploadHandler} is created.<br>
  * For a new server number assignment, an instance of {@link NumberAssigner} is created.
  * @author Joao Montenegro
  */
@@ -64,10 +65,16 @@ public class DBConnection extends Thread {
                                 (String)dataIn.get("columns"),(int)dataIn.get("server"), (int)dataIn.get("feature_requested"));
                         executor.submit(task);
                     }
-                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.OPEN_TCP){
-                        System.out.println("Storage access requested");
-                        //Send ip of this machine back
-                        StorageHandler task = new StorageHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"),
+                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.UP_TCP){
+                        System.out.println("Upload access requested");
+
+                        UploadHandler task = new UploadHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"),
+                                (String)dataIn.get("username"));
+                        executor.submit(task);
+                    }
+                    else if (Integer.parseInt((String)dataIn.get("feature")) == Request.DOWNLOAD){
+                        System.out.println("Download access requested");
+                        DownloadHandler task = new DownloadHandler((String)dataIn.get("music"), (int)dataIn.get("serverNumber"), (String)dataIn.get("clientIp"),
                                 (String)dataIn.get("username"));
                         executor.submit(task);
                     }
@@ -83,22 +90,7 @@ public class DBConnection extends Thread {
     }
 }
 
-/**
- * Handles all disk storage access.
- * <p>
- * When this class is instantiated, it receives the server number of the requesting multicast server, the file name
- * of the music which is to be uploaded and the machine's IP address from which the upload is to be done from (the client's).
- * <p>
- * First step is to send an UDP packet directly to the RMI Server containing this machine's IP, in order to start the upload over TCP.
- * <p>
- * After this, using a ServerSocket, the method waits for a user to connect to this socket, using a timeout to prevent failed connections
- * from blocking this thread.
- * <p>
- * Following a successful connection, the music file is uploaded and written to disk, and a reply to the multicast server is sent, reporting
- * the success of the operation.
- * @author Joao Montenegro
- */
-class StorageHandler implements Runnable{
+class DownloadHandler implements Runnable{
     private String fileName;
     private static String MULTICAST_ADDRESS = "226.0.0.1";
     private static int PORT = 7003;
@@ -109,14 +101,7 @@ class StorageHandler implements Runnable{
     private static Serializer s = new Serializer();
     private static int TIMEOUT = 5000; //5 seconds
 
-    /**
-     * Constructor of StorageHandler.
-     * @param fileName Filename of the music which is to be uploaded.
-     * @param serverNumber Number of the server that requested the operation.
-     * @param clientIp IP address of the client that wants to upload the file.
-     * @author Joao Montenegro
-     */
-    StorageHandler(String fileName, int serverNumber, String clientIp, String username){
+    DownloadHandler(String fileName, int serverNumber, String clientIp, String username) {
         this.fileName = fileName;
         this.serverNumber = serverNumber;
         this.clientIp = clientIp;
@@ -136,7 +121,120 @@ class StorageHandler implements Runnable{
 
             dataOut.put("username", username);
             dataOut.put("serverNumber", serverNumber);
-            dataOut.put("feature", String.valueOf(Request.OPEN_TCP));
+            dataOut.put("feature", String.valueOf(Request.DOWN_TCP));
+            dataOut.put("address", address.getHostAddress());
+            dataOut.put("musicName", fileName);
+
+            byte[] buffer = s.serialize(dataOut);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_CLIENT);
+
+            storage.send(packet);
+
+            //Await a TCP connection from the client
+            ServerSocket server = new ServerSocket(PORT);
+            server.setSoTimeout(TIMEOUT);
+            while (true){
+                Socket client = server.accept();
+                System.out.println("Accepted connection from client");
+
+                //Write bytes
+                if (client.getLocalAddress().getHostAddress().matches(clientIp)) { //If it's the correct client connecting
+                    //Receive data
+                    //Convert music file to byte array
+                    File file = new File("music/" + fileName + ".txt");
+                    ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
+                    byte[] fileContent = Files.readAllBytes(file.toPath());
+                    MusicFile music = new MusicFile(fileContent);
+
+                    out.writeObject(music);
+
+                    out.close();
+                    System.out.println("Uploaded to client");
+
+                    //Close connection
+                    client.close();
+                    server.close();
+
+                    //Report success to multicast server
+                    dataOut = new HashMap<>();
+                    dataOut.put("server", serverNumber);
+                    dataOut.put("response", "Success");
+
+                    buffer = s.serialize(dataOut);
+                    packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+
+                    storage.send(packet);
+
+                    break;
+                }
+                System.out.println("No match");
+            }
+
+            server.close();
+
+        } catch (IOException e) {
+            if (e instanceof SocketTimeoutException){
+                System.out.println("Connection timed out");
+            }
+            else e.printStackTrace();
+        }
+    }
+}
+
+/**
+ * Handles all disk storage access.
+ * <p>
+ * When this class is instantiated, it receives the server number of the requesting multicast server, the file name
+ * of the music which is to be uploaded and the machine's IP address from which the upload is to be done from (the client's).
+ * <p>
+ * First step is to send an UDP packet directly to the RMI Server containing this machine's IP, in order to start the upload over TCP.
+ * <p>
+ * After this, using a ServerSocket, the method waits for a user to connect to this socket, using a timeout to prevent failed connections
+ * from blocking this thread.
+ * <p>
+ * Following a successful connection, the music file is uploaded and written to disk, and a reply to the multicast server is sent, reporting
+ * the success of the operation.
+ * @author Joao Montenegro
+ */
+class UploadHandler implements Runnable{
+    private String fileName;
+    private static String MULTICAST_ADDRESS = "226.0.0.1";
+    private static int PORT = 7003;
+    private static int PORT_CLIENT = 4321;
+    private int serverNumber;
+    private String clientIp;
+    private String username;
+    private static Serializer s = new Serializer();
+    private static int TIMEOUT = 5000; //5 seconds
+
+    /**
+     * Constructor of UploadHandler.
+     * @param fileName Filename of the music which is to be uploaded.
+     * @param serverNumber Number of the server that requested the operation.
+     * @param clientIp IP address of the client that wants to upload the file.
+     * @author Joao Montenegro
+     */
+    UploadHandler(String fileName, int serverNumber, String clientIp, String username){
+        this.fileName = fileName;
+        this.serverNumber = serverNumber;
+        this.clientIp = clientIp;
+        this.username = username;
+    }
+
+    @Override
+    public void run() {
+        try{
+            MulticastSocket storage = new MulticastSocket(PORT_CLIENT);
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            storage.joinGroup(group);
+
+            InetAddress address = InetAddress.getLocalHost();
+
+            Map<String, Object> dataOut = new HashMap<>();
+
+            dataOut.put("username", username);
+            dataOut.put("serverNumber", serverNumber);
+            dataOut.put("feature", String.valueOf(Request.UP_TCP));
             dataOut.put("address", address.getHostAddress());
             dataOut.put("musicName", fileName);
 

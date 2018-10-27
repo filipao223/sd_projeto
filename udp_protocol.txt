@@ -181,8 +181,8 @@ transferencia de musicas para o server
 
 partilha 
 
---> users : Array de string
---> music : string
+--> username : string
+--> targetUser : string
 <-- resposta : callback
 
 transferencia de musica para utilizador

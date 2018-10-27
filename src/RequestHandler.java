@@ -1,6 +1,5 @@
 import java.io.*;
 import java.net.*;
-import java.nio.file.Files;
 import java.sql.*;
 import java.util.*;
 
@@ -342,7 +341,7 @@ public class RequestHandler implements Runnable {
                                 if (tokens.length < 2){
                                     System.out.println("Music not in database yet, connection refused");
                                     //Send null ip to user, not allowed
-                                    data.put("feature", String.valueOf(Request.OPEN_TCP));
+                                    data.put("feature", String.valueOf(Request.UP_TCP));
                                     data.put("username", user);
                                     data.put("address", null);
                                     data.put("musicName", musicName);
@@ -364,7 +363,7 @@ public class RequestHandler implements Runnable {
                             else{
                                 System.out.println("Error checking database");
                                 //Send null ip to user, not allowed
-                                data.put("feature", String.valueOf(Request.OPEN_TCP));
+                                data.put("feature", String.valueOf(Request.UP_TCP));
                                 data.put("username", user);
                                 data.put("address", null);
                                 data.put("musicName", musicName);
@@ -381,11 +380,11 @@ public class RequestHandler implements Runnable {
                             }
 
                             //Send client info to storage server
-                            MulticastSocket requestIp;
+                            MulticastSocket response;
 
                             Map<String, Object> data = new HashMap<>();
 
-                            data.put("feature", String.valueOf(Request.OPEN_TCP));
+                            data.put("feature", String.valueOf(Request.UP_TCP));
                             data.put("username", user);
                             data.put("music", musicName);
                             data.put("clientIp", clientIp);
@@ -399,13 +398,13 @@ public class RequestHandler implements Runnable {
                             socket.send(packet);
 
                             //Wait for the response from storage server, to check if successful
-                            requestIp = new MulticastSocket(PORT_STORAGE);
-                            requestIp.joinGroup(group);
+                            response = new MulticastSocket(PORT_STORAGE);
+                            response.joinGroup(group);
                             byte[] bufferIn = new byte[4096];
                             packet = new DatagramPacket(bufferIn, bufferIn.length);
-                            requestIp.setSoTimeout(TCP_LISTEN_TIMEOUT*3);
+                            response.setSoTimeout(TCP_LISTEN_TIMEOUT*3);
                             while(true){
-                                requestIp.receive(packet);
+                                response.receive(packet);
 
                                 data = (Map<String, Object>) s.deserialize(packet.getData());
 
@@ -431,10 +430,79 @@ public class RequestHandler implements Runnable {
                             }
                         }
                         break;
+            //--------------------------------------------------------------------------------------------------------------------------
+                    case Request.DOWNLOAD:
+                        try{
+                            boolean emptySharedList = false;
+                            user = (String) data.get("username");
+                            musicName = (String) data.get("music");
+                            clientIp = (String) data.get("client");
+
+                            //Check if user is online
+                            rc = checkLoginState(user);
+
+                            if (rc==NO_USER_FOUND) sendCallback(user, "User not found", null, code);
+                            else if (rc==NO_LOGIN) sendCallback(user, "User not logged in", null, code);
+                            else{
+                                //User is online, now check if it is allowed to get that music
+                                //First get all users that are sharing with this user
+                                String sql = "SELECT shared FROM Users WHERE name=\"" + user + "\";";
+                                databaseAccess(user, sql, true, "shared", Request.CHECK_SHARE_USERS);
+                                String results = (String) databaseReply(user, Request.CHECK_SHARE_USERS);
+                                if (results != null){
+                                    //Split string Format: 1_shared_user1|user3|...|userN_
+                                    String[] tokens = results.split("_");
+                                    if (tokens.length < 2 || tokens[2].matches("null")){ //No users sharing currently
+                                        System.out.println("No users sharing, but it could be the uploader");
+                                        emptySharedList = true;
+                                    }
+
+                                    //Now get the music's uploader
+                                    sql = "SELECT uploader FROM Music WHERE name=\"" + musicName + "\";";
+                                    databaseAccess(user, sql, true, "uploader", Request.CHECK_UPLOADER);
+                                    results = (String) databaseReply(user, Request.CHECK_UPLOADER);
+                                    if (results != null){
+                                        //Split string Format: 1_uploader_user6_
+                                        String[] tokensUploader = results.split("_");
+                                        if (tokensUploader.length < 2){
+                                            System.out.println("Music doesn't have an uploader"); //Shouldn't happen
+                                        }
+                                        else{
+                                            //Check if it is the uploader trying to download
+                                            if (user.matches(tokensUploader[2])){
+                                                //It is, allow download
+                                                System.out.println("Uploader is allowed access");
+                                                downloadMusic(user, musicName, clientIp);
+                                                break;
+                                            }
+                                            if (emptySharedList){
+                                                //It's not the uploader, and there are no users sharing with him, no access
+                                                sendCallback(user, "You don't have access to this music", null, code);
+                                                break;
+                                            }
+                                            //Split usernames in token Format: user1|user2|user3
+                                            String[] tokensNames = tokens[2].split("\\|");
+                                            //Check if one of the users sharing their music matches with the uploader of this music
+                                            for (int i=0; i < tokensNames.length; i++){
+                                                if (tokensNames[i].matches(tokensUploader[2])){
+                                                    //Match, start the download procedure
+                                                    downloadMusic(user, musicName, clientIp);
+                                                }
+                                            }
+                                            sendCallback(user, "You don't have access to this music", null, code);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception e){
+                            e.printStackTrace();
+                        }
+                        break;
             //---------------------------------------------------------------------------------------------------------------------------
                     case Request.SHARE:
+                        user = (String) data.get("username");
                         try{
-                            user = (String) data.get("username");
                             String targetUser = (String) data.get("target"); //User that will have access to music from user
 
                             //Check if the names are the same (cant share with yourself)
@@ -457,24 +525,82 @@ public class RequestHandler implements Runnable {
                                     String[] tokens = results.split("_");
                                     if (tokens.length < 2 || tokens[2].matches("null")){
                                         System.out.println("No user yet sharing");
-                                        sql = "UPDATE Users SET shared=\"" + user + "\" WHERE name=\"" + targetUser + "\";";
+                                        sql = "UPDATE Users SET shared=\"" + user + "|\" WHERE name=\"" + targetUser + "\";";
                                         databaseAccess(user, sql, false, "", Request.ADD_SHARE_USERS);
                                     }
                                     else{
                                         System.out.println("Users already sharing");
-                                        sql = "UPDATE Users SET shared=shared ||\"|" + user + "\" WHERE name=\"" + targetUser + "\";";
+                                        sql = "UPDATE Users SET shared=shared ||\"" + user + "|\" WHERE name=\"" + targetUser + "\";";
                                         databaseAccess(user, sql, false, "", Request.ADD_SHARE_USERS);
                                     }
+                                    sendCallback(user, "Music shared", null, code);
+                                    break;
                                 }
                             }
                         } catch (Exception e){
                             e.printStackTrace();
                         }
+                        sendCallback(user, "Music not shared", null, code);
                 }
             }
         } catch (Exception e){
             System.out.println("Server aborted packet processing unexpectedly");
             if (e instanceof SocketTimeoutException) System.out.println("Response from storage sucess timed out");
+        }
+    }
+
+    private void downloadMusic(String user, String musicName, String clientIp) {
+        try{
+            //Send client info to storage server
+            MulticastSocket socket = new MulticastSocket(PORT_DBCONNECTION);
+            MulticastSocket response;
+
+            Map<String, Object> data = new HashMap<>();
+
+            data.put("feature", String.valueOf(Request.DOWNLOAD));
+            data.put("username", user);
+            data.put("music", musicName);
+            data.put("clientIp", clientIp);
+            data.put("serverNumber", serverNumber);
+
+            byte[] buffer = s.serialize(data);
+
+            InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+            socket.joinGroup(group);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT_DBCONNECTION);
+            socket.send(packet);
+
+            //Wait for the response from storage server, to check if successful
+            response = new MulticastSocket(PORT_STORAGE);
+            response.joinGroup(group);
+            byte[] bufferIn = new byte[4096];
+            packet = new DatagramPacket(bufferIn, bufferIn.length);
+            response.setSoTimeout(TCP_LISTEN_TIMEOUT*3);
+            while(true){
+                response.receive(packet);
+
+                data = (Map<String, Object>) s.deserialize(packet.getData());
+
+                if ((int)data.get("server")==serverNumber){
+                    System.out.println("Response: " + data.get("response"));
+                    if (((String)data.get("response")).matches("Success")){
+                        sendCallback(user, "File download complete", null, Request.DOWNLOAD);
+                    }
+                    else{
+                        sendCallback(user, "File download failed", null, Request.DOWNLOAD);
+                    }
+                    break;
+                }
+            }
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            if (e instanceof SocketTimeoutException){
+                System.out.println("Connection timed out");
+            }
+            else e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 

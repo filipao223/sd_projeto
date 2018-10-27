@@ -19,7 +19,8 @@ public class Request {
     protected static final int SHARE             = 11; //Share de uma musica com users
     protected static final int DOWNLOAD          = 12; //Download de musicas do servidor
     protected static final int CALLBACK          = 13; //Packet returned after processing in server
-    protected static final int OPEN_TCP          = 62; //Devolve o endereço do servidor para dar upload
+    protected static final int UP_TCP            = 62; //Devolve o endereço do servidor para dar upload
+    protected static final int DOWN_TCP          = 70; //Devolve o endereço do servidor para fazer download
     protected static final int NEW_SERVER        = 30; //Novo servidor criado, novos pacotes podem escolhe-lo
     protected static final int SERVER_DOWN       = 31; //Servidor foi abaixo, novos pacotes não o escolhem
     protected static final int UPLOAD_MUSIC      = 38; //Upload de musicas para o servidor
@@ -76,4 +77,5 @@ public class Request {
     protected static final int ALL_EDITORS       = 66;
     protected static final int CHECK_SHARE_USERS = 67; //internal, code to check in db if are users sharing already
     protected static final int ADD_SHARE_USERS   = 68; //internal
+    protected static final int CHECK_UPLOADER    = 69;
 }

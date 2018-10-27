@@ -123,6 +123,58 @@ public class RMIClient extends UnicastRemoteObject implements Client {
                 System.out.println("Connection refused");
             }
         }
+        else if (((String)data.get("feature")).matches("70")){
+            String ip = (String) data.get("address");
+            if (ip != null){
+                System.out.println("------------Download allowed from address " + ip);
+                String musicName = (String) data.get("musicName");
+
+                //Open a TCP connection
+                try{
+                    Socket tcpSocket = new Socket(ip, PORT_TCP);
+                    tcpSocket.setSoTimeout(TCP_LISTEN_TIMEOUT);
+
+                    ObjectInputStream inFromClient =
+                            new ObjectInputStream(tcpSocket.getInputStream());
+                    Object file = null;
+                    try {
+                        file = inFromClient.readObject();
+                    } catch (EOFException e) {
+                        System.out.println("Finished reading object");
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                    }
+
+                    System.out.println("User uploaded: " + file);
+
+                    //Close connection
+                    tcpSocket.close();
+
+                    //Convert byte array back to a file
+                    MusicFile musicFile = (MusicFile) file;
+
+                    //Write the file to disk
+                    FileOutputStream outFile = new FileOutputStream("newmusic/" + musicName + ".txt");
+                    if (musicFile == null){
+                        System.out.println("Music file is null");
+                    }
+                    else{
+                        outFile.write(musicFile.fileContent);
+                    }
+
+                    outFile.close();
+                    System.out.println("Wrote music to disk successfully");
+
+                } catch (SocketTimeoutException e){
+                    System.out.println("Client side download timed out");
+                } catch (IOException e){
+                    e.printStackTrace();
+                }
+            }
+            else{
+                System.out.println("Connection refused");
+            }
+        }
     }
 
     /**
@@ -506,7 +558,8 @@ public class RMIClient extends UnicastRemoteObject implements Client {
             readKeyboard = keyboardScanner.nextLine();
             data.put("artist", readKeyboard);
         }
-        else if (readKeyboard.matches("10")){
+//=================================================UPLOAD/DOWNLOAD=============================================
+        else if (readKeyboard.matches("10") || readKeyboard.matches("12")){
             System.out.println("Username?: ");
             readKeyboard = keyboardScanner.nextLine();
             data.put("username", readKeyboard);

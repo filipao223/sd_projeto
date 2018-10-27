@@ -260,33 +260,25 @@ class ReceivePacket extends Thread{
 			try{
 				Map<String, Object> data = (Map<String, Object>) serializer.deserialize(packetIn.getData());
 
-
-				/*if (data.get("feature_requested") != null) {
-					if (data.get("feature_requested").equals(7)) {
-						for (Client c : clients) {
-							if (c.getName().matches((String) data.get("username"))) {
-								c.print_on_client(data);
-							}
-						}
-					}
-				}*/
-				for(Client c : clients){
-					if( c.getName().matches((String) data.get("username"))){
-						c.print_on_client(data);
-					}
-				}
-//=============================================RESPOSTAS INTERNAS=============================================================
-				//O utilizador não recebe estas mensagens
-				//Novo servidor ligado
-				if(((String)data.get("feature")).matches("30")){
-					System.out.println("-----------New server (" + data.get("new_server") + ")------------");
-					serverNumbers.add((int)data.get("new_server")); //Adiciona o numero do servidor à lista da classe
-				}
-				//Um servidor foi desligado
-				else if(((String)data.get("feature")).matches("31")){
-					System.out.println("-----------Server down (" + data.get("server_down") + ")------------");
-					if (!serverNumbers.isEmpty()) serverNumbers.remove((int)data.get("server_down")); //Remove o numero do servidor da lista da classe
-				}
+                //=============================================RESPOSTAS INTERNAS=============================================================
+                //O utilizador não recebe estas mensagens
+                //Novo servidor ligado
+                if(((String)data.get("feature")).matches("30")){
+                    System.out.println("-----------New server (" + data.get("new_server") + ")------------");
+                    serverNumbers.add((int)data.get("new_server")); //Adiciona o numero do servidor à lista da classe
+                }
+                //Um servidor foi desligado
+                else if(((String)data.get("feature")).matches("31")){
+                    System.out.println("-----------Server down (" + data.get("server_down") + ")------------");
+                    if (!serverNumbers.isEmpty()) serverNumbers.remove((int)data.get("server_down")); //Remove o numero do servidor da lista da classe
+                }
+                else{
+                    for(Client c : clients){
+                        if( c.getName().matches((String) data.get("username"))){
+                            c.print_on_client(data);
+                        }
+                    }
+                }
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (ClassNotFoundException e) {
